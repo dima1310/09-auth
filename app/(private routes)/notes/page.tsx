@@ -4,8 +4,8 @@
 
 import React, { useState, useEffect } from "react";
 import { getNotes, createNote, deleteNote } from "../../../lib/api/clientApi";
-import { useAuthStore } from "../../../lib/store/noteStore";
-import type { Note } from "../../../lib/store/noteStore";
+import { useAuthStore } from "../../../lib/store/authStore";
+import type { Note } from "../../../lib/store/authStore";
 
 // Компоненты (предполагаем, что они существуют)
 // import NotesList from "../../../components/NotesList/NotesList";

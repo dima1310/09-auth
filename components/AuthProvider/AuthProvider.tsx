@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore } from "../../lib/store/noteStore";
+import { useAuthStore } from "../../lib/store/authStore";
 import { checkSession, logoutUser } from "../../lib/api/clientApi";
 import { useIsClient } from "../../hooks/useIsClient";
 import css from "./AuthProvider.module.css";

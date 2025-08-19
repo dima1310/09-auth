@@ -5,7 +5,7 @@ import {
   LoginCredentials,
   RegisterCredentials,
   Note,
-} from "@/lib/store/noteStore";
+} from "@/lib/store/authStore";
 
 // Типы для API
 interface CreateNotePayload {

@@ -12,7 +12,7 @@ import {
   User,
   LoginCredentials,
   RegisterCredentials,
-} from "@/lib/store/noteStore";
+} from "@/lib/store/authStore";
 
 interface AuthContextType {
   user: User | null;

@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "../../../../lib/store/noteStore";
+import { useAuthStore } from "../../../../lib/store/authStore";
 import { updateCurrentUser } from "../../../../lib/api/clientApi";
 import Image from "next/image";
 import css from "./page.module.css";

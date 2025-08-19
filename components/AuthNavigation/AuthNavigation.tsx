@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "../../lib/store/noteStore";
+import { useAuthStore } from "../../lib/store/authStore";
 import { logoutUser } from "../../lib/api/clientApi";
 import { useIsClient } from "../../hooks/useIsClient";
 import css from "./AuthNavigation.module.css";
