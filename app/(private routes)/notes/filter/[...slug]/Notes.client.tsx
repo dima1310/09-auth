@@ -1,91 +1,106 @@
+// app/(private-routes)/notes/filter/[...slug]/Notes.client.tsx
+
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useDebounce } from "use-debounce";
-import { fetchNotes } from "@/lib/api";
-import type { FetchNotesResponse } from "@/lib/api";
-import NoteList from "@/components/NoteList/NoteList";
-import Pagination from "@/components/Pagination/Pagination";
-import SearchBox from "@/components/SearchBox/SearchBox";
-import css from "./NotesPage.module.css";
+import { apiClient } from "@/lib/api/clientApi";
+import { Note } from "@/lib/store/authStore";
 
 interface NotesClientProps {
-  tag: string;
-  initialData: FetchNotesResponse;
+  initialNotes?: Note[];
+  filter?: string;
+  tag?: string;
 }
 
-export default function NotesClient({ tag, initialData }: NotesClientProps) {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+export default function NotesClient({
+  initialNotes = [],
+  filter = "",
+  tag = "",
+}: NotesClientProps) {
+  const [notes, setNotes] = useState<Note[]>(initialNotes);
+  const [searchQuery, setSearchQuery] = useState(filter);
+  const [selectedTag, setSelectedTag] = useState(tag);
+  const [loading, setLoading] = useState(false);
 
-  const [debouncedSearch] = useDebounce(search, 500);
+  // Debounce search query
+  const [debouncedSearchQuery] = useDebounce(searchQuery, 300);
 
-  const { data, isLoading, error, isFetching } = useQuery<FetchNotesResponse>({
-    queryKey: ["notes", page, debouncedSearch, tag],
-    queryFn: () =>
-      fetchNotes({
-        page,
-        search: debouncedSearch,
-        tag: tag === "All" ? undefined : tag,
-      }),
-    initialData: page === 1 && debouncedSearch === "" ? initialData : undefined,
-    placeholderData: () => ({
-      notes: [],
-      totalPages: 1,
-    }),
-  });
+  // Load notes when filters change
+  useEffect(() => {
+    const loadNotes = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.getNotes({
+          search: debouncedSearchQuery || undefined,
+          tag: selectedTag || undefined,
+          limit: 20,
+        });
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    setPage(1);
-  };
+        // Handle different response formats
+        if (response && typeof response === "object" && "notes" in response) {
+          setNotes(response.notes);
+        } else if (Array.isArray(response)) {
+          setNotes(response);
+        } else {
+          setNotes([]);
+        }
+      } catch (error) {
+        console.error("Failed to load notes:", error);
+        setNotes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handlePageChange = ({ selected }: { selected: number }) => {
-    setPage(selected + 1);
-  };
+    loadNotes();
+  }, [debouncedSearchQuery, selectedTag]);
 
   return (
-    <div className={css.app}>
-      <div className={css.header}>
-        <h1 className={css.title}>
-          {tag === "All" ? "All Notes" : `${tag} Notes`}
-        </h1>
+    <div className="notes-container">
+      {/* Search and filter UI */}
+      <div className="filters mb-6">
+        <input
+          type="text"
+          placeholder="Search notes..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full p-2 border rounded-md"
+        />
+
+        <select
+          value={selectedTag}
+          onChange={(e) => setSelectedTag(e.target.value)}
+          className="mt-2 p-2 border rounded-md"
+        >
+          <option value="">All Tags</option>
+          <option value="work">Work</option>
+          <option value="personal">Personal</option>
+          <option value="todo">Todo</option>
+          <option value="meeting">Meeting</option>
+        </select>
       </div>
 
-      <header className={css.toolbar}>
-        <SearchBox value={search} onChange={handleSearchChange} />
-        <Link href="/notes/action/create" className={css.button}>
-          Create note +
-        </Link>
-      </header>
-
-      {isLoading && <p>Loading...</p>}
-
-      {error && (
-        <div className={css.error}>
-          Error:{" "}
-          {error instanceof Error ? error.message : "Something went wrong"}
+      {/* Notes list */}
+      {loading ? (
+        <div className="text-center py-8">Loading...</div>
+      ) : notes.length === 0 ? (
+        <div className="text-center py-8">No notes found</div>
+      ) : (
+        <div className="grid gap-4">
+          {notes.map((note) => (
+            <div key={note.id} className="p-4 border rounded-md">
+              <h3 className="font-semibold">{note.title}</h3>
+              <p className="text-gray-600 mt-2">{note.content}</p>
+              {note.tag && (
+                <span className="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">
+                  {note.tag}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       )}
-
-      {data?.notes.length ? (
-        <>
-          <NoteList notes={data.notes} />
-          {data.totalPages > 1 && (
-            <Pagination
-              pageCount={data.totalPages}
-              onPageChange={handlePageChange}
-              currentPage={page - 1}
-            />
-          )}
-        </>
-      ) : (
-        !isLoading && <div className={css.noNotes}>No notes found</div>
-      )}
-
-      {isFetching && !isLoading && <p>Updating...</p>}
     </div>
   );
 }

@@ -127,11 +127,13 @@ class ClientApi {
     page?: number;
     limit?: number;
     tag?: string;
+    search?: string;
   }): Promise<NotesResponse> {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.append("page", params.page.toString());
     if (params?.limit) searchParams.append("limit", params.limit.toString());
     if (params?.tag) searchParams.append("tag", params.tag);
+    if (params?.search) searchParams.append("search", params.search);
 
     const query = searchParams.toString();
     return this.request<NotesResponse>(`/notes${query ? `?${query}` : ""}`);
@@ -177,6 +179,7 @@ export const getNotes = (params?: {
   page?: number;
   limit?: number;
   tag?: string;
+  search?: string;
 }) => apiClient.getNotes(params);
 export const createNote = (noteData: CreateNotePayload) =>
   apiClient.createNote(noteData);

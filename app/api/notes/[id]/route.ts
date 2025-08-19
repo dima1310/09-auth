@@ -4,18 +4,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // GET /api/notes/[id] - Get specific note
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verify authentication
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get("accessToken")?.value;
 
     if (!accessToken) {
@@ -49,11 +49,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/notes/[id] - Update specific note
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     // Verify authentication
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get("accessToken")?.value;
 
     if (!accessToken) {
@@ -103,10 +103,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/notes/[id] - Delete specific note
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verify authentication
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get("accessToken")?.value;
 
     if (!accessToken) {
@@ -188,7 +188,8 @@ async function updateNote(
   };
 }
 
-async function deleteNote(id: string, userId: string): Promise<boolean> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function deleteNote(_id: string, _userId: string): Promise<boolean> {
   // This should delete the note from your database
   // Make sure the note belongs to the user
   // Return true if deleted, false if not found

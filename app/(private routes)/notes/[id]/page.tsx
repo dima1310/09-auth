@@ -4,12 +4,14 @@ import { Suspense } from "react";
 import NoteDetailsClient from "./NoteDetails.client";
 
 interface NotePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function NotePage({ params }: NotePageProps) {
+export default async function NotePage({ params }: NotePageProps) {
+  const { id } = await params;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto py-8">
@@ -20,7 +22,7 @@ export default function NotePage({ params }: NotePageProps) {
             </div>
           }
         >
-          <NoteDetailsClient noteId={params.id} />
+          <NoteDetailsClient noteId={id} />
         </Suspense>
       </div>
     </div>
@@ -29,8 +31,10 @@ export default function NotePage({ params }: NotePageProps) {
 
 // Generate metadata for the page
 export async function generateMetadata({ params }: NotePageProps) {
+  const { id } = await params;
+
   return {
-    title: `Note ${params.id} | Notes App`,
+    title: `Note ${id} | Notes App`,
     description: "View and manage your note",
   };
 }

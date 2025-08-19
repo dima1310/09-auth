@@ -1,21 +1,27 @@
 // app/layout.tsx
 
+import { ReactNode } from "react";
 import "./globals.css";
 
-export const metadata = {
-  title: "NoteHub - Personal Note Taking App",
-  description:
-    "Secure personal note-taking application with user authentication",
-};
+interface RootLayoutProps {
+  children: ReactNode;
+  modal: ReactNode;
+}
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children, modal }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <div id="root">
+          {children}
+          {modal}
+        </div>
+      </body>
     </html>
   );
 }
+
+export const metadata = {
+  title: "Notes App",
+  description: "A simple notes application with authentication",
+};

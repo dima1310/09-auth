@@ -1,61 +1,139 @@
+// app/@modal/(.)notes/[id]/NotePreview.client.tsx
+
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fetchNoteById } from "@/lib/api";
-import Modal from "@/components/Modal/Modal";
-import css from "./NotePreview.module.css";
+import { apiClient } from "@/lib/api/clientApi";
+import { Note } from "@/lib/store/authStore";
 
-interface NotePreviewModalProps {
+interface NotePreviewProps {
   noteId: string;
 }
 
-export default function NotePreviewModal({ noteId }: NotePreviewModalProps) {
+export default function NotePreviewClient({ noteId }: NotePreviewProps) {
+  const [note, setNote] = useState<Note | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const {
-    data: note,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["note", noteId],
-    queryFn: () => fetchNoteById(noteId),
-    enabled: !!noteId,
-    refetchOnMount: false, // Додано для запобігання повторних запитів передвибраних даних
-  });
+  useEffect(() => {
+    const loadNote = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const fetchedNote = await apiClient.getNote(noteId);
+        setNote(fetchedNote);
+      } catch (err) {
+        console.error("Failed to load note:", err);
+        setError("Failed to load note");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (noteId) {
+      loadNote();
+    }
+  }, [noteId]);
 
   const handleClose = () => {
     router.back();
   };
 
-  if (!noteId) {
-    return null;
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={handleBackdropClick}
+      >
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !note) {
+    return (
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={handleBackdropClick}
+      >
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+          <div className="text-center text-red-600">
+            {error || "Note not found"}
+          </div>
+          <button
+            onClick={handleClose}
+            className="mt-4 w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <Modal onClose={handleClose}>
-      <div className={css.container}>
-        {isLoading && <p>Loading note...</p>}
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-4">
+          <h1 className="text-2xl font-bold">{note.title}</h1>
+          <button
+            onClick={handleClose}
+            className="text-gray-500 hover:text-gray-700 text-xl"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
 
-        {error && (
-          <div className={css.error}>
-            <p>Could not load note details.</p>
+        {/* Content */}
+        <div className="mb-4">
+          <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+        </div>
+
+        {/* Tag */}
+        {note.tag && (
+          <div className="mb-4">
+            <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
+              {note.tag}
+            </span>
           </div>
         )}
 
-        {note && (
-          <div className={css.noteContent}>
-            <div className={css.header}>
-              <h2 className={css.title}>{note.title}</h2>
-              {note.tag && <span className={css.tag}>{note.tag}</span>}
-            </div>
-            <p className={css.content}>{note.content}</p>
-            <p className={css.date}>
-              Created: {new Date(note.createdAt).toLocaleDateString()}
-            </p>
+        {/* Footer */}
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div className="text-sm text-gray-500">
+            Created: {new Date(note.createdAt).toLocaleDateString()}
           </div>
-        )}
+          <div className="space-x-2">
+            <button
+              onClick={() => router.push(`/notes/${note.id}/edit`)}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Edit
+            </button>
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }

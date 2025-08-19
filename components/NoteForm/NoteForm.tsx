@@ -1,253 +1,217 @@
+// components/NoteForm/NoteForm.tsx
+
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createNote } from "../../lib/api/clientApi";
-import type { CreateNoteData } from "../../types/note";
-import css from "./NoteForm.module.css";
+import { createNote } from "@/lib/api/clientApi";
+import type { NoteTag } from "@/types/note";
+import { useNoteStore } from "@/lib/store/noteStore";
 
-interface NoteFormProps {
-  onClose?: () => void;
-  initialData?: {
-    title?: string;
-    content?: string;
-    tag?: string;
-  };
+interface CreateNotePayload {
+  title: string;
+  content: string;
+  tag?: NoteTag;
 }
 
-export default function NoteForm({ onClose, initialData }: NoteFormProps) {
+interface NoteDraft {
+  title: string;
+  content: string;
+  tag: NoteTag | "";
+}
+
+const NOTE_TAGS: NoteTag[] = [
+  "Todo",
+  "Work",
+  "Personal",
+  "Meeting",
+  "Shopping",
+];
+
+export default function NoteForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { addNote } = useNoteStore();
 
-  // Видалено невикористану змінну user
-
-  const [localDraft, setLocalDraft] = useState({
-    title: initialData?.title || "",
-    content: initialData?.content || "",
-    tag: initialData?.tag || "Todo",
+  const [localDraft, setLocalDraft] = useState<NoteDraft>({
+    title: "",
+    content: "",
+    tag: "",
   });
 
-  const handleTitleChange = (value: string) => {
-    setLocalDraft((prev) => ({ ...prev, title: value }));
-  };
+  const [error, setError] = useState<string | null>(null);
 
-  const handleContentChange = (value: string) => {
-    setLocalDraft((prev) => ({ ...prev, content: value }));
-  };
-
-  const handleTagChange = (value: string) => {
-    setLocalDraft((prev) => ({ ...prev, tag: value }));
-  };
-
-  const { mutate: createNoteMutation } = useMutation({
+  const createNoteMutation = useMutation({
     mutationFn: createNote,
-    onSuccess: () => {
+    onSuccess: (newNote) => {
+      // Add to note store
+      addNote(newNote);
+
+      // Invalidate and refetch notes
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+
+      // Navigate to the new note
+      router.push(`/notes/${newNote.id}`);
+
+      // Reset form
       setLocalDraft({
         title: "",
         content: "",
-        tag: "Todo",
+        tag: "",
       });
-
-      queryClient.invalidateQueries({
-        queryKey: ["notes"],
-        exact: false,
-      });
-
-      if (onClose) {
-        onClose();
-      } else {
-        router.back();
-      }
+      setError(null);
     },
     onError: (error) => {
-      console.error("Error creating note:", error);
-      setFormErrors({
-        submit: "Failed to create note",
-      });
-      setIsSubmitting(false);
+      console.error("Failed to create note:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to create note"
+      );
     },
   });
 
-  const validateForm = (): Record<string, string> => {
-    const errors: Record<string, string> = {};
-
-    if (!localDraft.title || localDraft.title.trim().length < 3) {
-      errors.title = "Title must be at least 3 characters";
-    } else if (localDraft.title.trim().length > 50) {
-      errors.title = "Title must be at most 50 characters";
-    }
-
-    if (!localDraft.tag) {
-      errors.tag = "Tag is required";
-    }
-
-    if (localDraft.content && localDraft.content.length > 500) {
-      errors.content = "Content must be at most 500 characters";
-    }
-
-    return errors;
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setLocalDraft((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setFormErrors({});
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
 
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      setIsSubmitting(false);
+    // Validation
+    if (!localDraft.title.trim()) {
+      setError("Title is required");
       return;
     }
 
-    try {
-      const noteData: CreateNoteData = {
-        title: localDraft.title.trim(),
-        content: localDraft.content.trim(),
-        tag: localDraft.tag,
-      };
-
-      createNoteMutation(noteData);
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      setFormErrors({ submit: "Failed to submit form" });
-      setIsSubmitting(false);
+    if (!localDraft.content.trim()) {
+      setError("Content is required");
+      return;
     }
-  };
 
-  const handleSaveDraft = () => {
-    // Тимчасово збереження в localStorage
-    localStorage.setItem("noteDraft", JSON.stringify(localDraft));
+    // Prepare note data
+    const noteData: CreateNotePayload = {
+      title: localDraft.title.trim(),
+      content: localDraft.content.trim(),
+      // Only include tag if it's not empty and is a valid NoteTag
+      ...(localDraft.tag && NOTE_TAGS.includes(localDraft.tag as NoteTag)
+        ? { tag: localDraft.tag as NoteTag }
+        : {}),
+    };
 
-    const draftButton = document.querySelector(
-      '[data-action="draft"]'
-    ) as HTMLButtonElement;
-    if (draftButton) {
-      const originalText = draftButton.textContent;
-      draftButton.textContent = "Saved!";
-      draftButton.style.background = "#10b981";
-
-      setTimeout(() => {
-        draftButton.textContent = originalText;
-        draftButton.style.background = "";
-      }, 2000);
-    }
+    createNoteMutation.mutate(noteData);
   };
 
   const handleCancel = () => {
-    if (onClose) {
-      onClose();
-    } else {
-      router.back();
-    }
+    router.push("/notes");
   };
 
-  // Завантаження draft з localStorage при монтуванні
-  useEffect(() => {
-    if (!initialData) {
-      try {
-        const savedDraft = localStorage.getItem("noteDraft");
-        if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          setLocalDraft(parsed);
-        }
-      } catch (error) {
-        console.error("Failed to load draft:", error);
-      }
-    }
-  }, [initialData]);
-
   return (
-    <div className={css.formContainer}>
-      <form onSubmit={handleSubmit} className={css.form}>
-        <div className={css.formGroup}>
-          <label htmlFor="title">Title</label>
-          <input
-            id="title"
-            name="title"
-            type="text"
-            value={localDraft.title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            className={css.input}
-            placeholder="Enter note title..."
-          />
-          {formErrors.title && (
-            <span className={css.error}>{formErrors.title}</span>
-          )}
-        </div>
+    <div className="max-w-2xl mx-auto p-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          Create New Note
+        </h2>
 
-        <div className={css.formGroup}>
-          <label htmlFor="content">Content</label>
-          <textarea
-            id="content"
-            name="content"
-            rows={8}
-            value={localDraft.content}
-            onChange={(e) => handleContentChange(e.target.value)}
-            className={css.textarea}
-            placeholder="Write your note content here..."
-          />
-          {formErrors.content && (
-            <span className={css.error}>{formErrors.content}</span>
-          )}
-        </div>
-
-        <div className={css.formGroup}>
-          <label htmlFor="tag">Tag</label>
-          <select
-            id="tag"
-            name="tag"
-            value={localDraft.tag}
-            onChange={(e) => handleTagChange(e.target.value)}
-            className={css.select}
-          >
-            <option value="Todo">Todo</option>
-            <option value="Work">Work</option>
-            <option value="Personal">Personal</option>
-            <option value="Meeting">Meeting</option>
-            <option value="Shopping">Shopping</option>
-          </select>
-          {formErrors.tag && (
-            <span className={css.error}>{formErrors.tag}</span>
-          )}
-        </div>
-
-        {formErrors.submit && (
-          <div className={css.error}>{formErrors.submit}</div>
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600">{error}</p>
+          </div>
         )}
 
-        <div className={css.actions}>
-          <button
-            type="button"
-            className={css.cancelButton}
-            onClick={handleCancel}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Title */}
+          <div>
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Title *
+            </label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              value={localDraft.title}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter note title..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
 
-          <button
-            type="button"
-            className={css.draftButton}
-            onClick={handleSaveDraft}
-            disabled={isSubmitting}
-            data-action="draft"
-          >
-            Save Draft
-          </button>
+          {/* Tag */}
+          <div>
+            <label
+              htmlFor="tag"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Tag
+            </label>
+            <select
+              id="tag"
+              name="tag"
+              value={localDraft.tag}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a tag (optional)</option>
+              {NOTE_TAGS.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <button
-            type="submit"
-            className={css.submitButton}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Creating..." : "Create note"}
-          </button>
-        </div>
-      </form>
+          {/* Content */}
+          <div>
+            <label
+              htmlFor="content"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Content *
+            </label>
+            <textarea
+              id="content"
+              name="content"
+              value={localDraft.content}
+              onChange={handleInputChange}
+              required
+              rows={10}
+              placeholder="Write your note content here..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-vertical"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={createNoteMutation.isPending}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createNoteMutation.isPending}
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {createNoteMutation.isPending ? "Creating..." : "Create Note"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

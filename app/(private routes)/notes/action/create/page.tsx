@@ -176,9 +176,3 @@ export default function CreateNotePage() {
     </div>
   );
 }
-
-// Metadata for the page
-export const metadata = {
-  title: "Create Note | Notes App",
-  description: "Create a new note",
-};

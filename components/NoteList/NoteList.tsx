@@ -1,32 +1,48 @@
+// components/NoteList/NoteList.tsx
+
 "use client";
 
-import { useState } from "react";
-import { Note, CreateNoteData, NotesQuery } from "../../types/note";
-import css from "./NoteList.module.css";
+import React, { useState } from "react";
+import Link from "next/link";
+import { Note, NoteTag } from "@/types/note";
+import { useNoteActions } from "@/lib/store/noteStore";
 
-interface NotesListProps {
+interface NoteListProps {
   notes: Note[];
-  onSearch: (search: string) => void;
-  onTagFilter: (tag: string) => void;
-  onCreateNote: (noteData: CreateNoteData) => Promise<void>;
-  onDeleteNote: (id: string) => Promise<void>;
-  isCreating: boolean;
-  currentQuery: NotesQuery;
+  onSearch?: (query: string) => void;
+  onTagFilter?: (tag: string) => void;
+  onCreateNote?: (noteData: {
+    title: string;
+    content: string;
+    tag?: NoteTag;
+  }) => void;
+  onDeleteNote?: (id: string) => void;
 }
 
-export default function NotesList({
+interface SearchFilters {
+  title: string;
+  content: string;
+  tag: NoteTag | "";
+}
+
+const NOTE_TAGS: NoteTag[] = [
+  "Todo",
+  "Work",
+  "Personal",
+  "Meeting",
+  "Shopping",
+];
+
+export default function NoteList({
   notes,
   onSearch,
   onTagFilter,
   onCreateNote,
   onDeleteNote,
-  isCreating,
-  currentQuery,
-}: NotesListProps) {
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [searchValue, setSearchValue] = useState(currentQuery.search || "");
-  const [tagValue, setTagValue] = useState(currentQuery.tag || "");
-  const [newNote, setNewNote] = useState<CreateNoteData>({
+}: NoteListProps) {
+  const { removeNote } = useNoteActions();
+
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({
     title: "",
     content: "",
     tag: "",
@@ -34,154 +50,244 @@ export default function NotesList({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(searchValue);
+    if (onSearch) {
+      const query = `${searchFilters.title} ${searchFilters.content}`.trim();
+      onSearch(query);
+    }
   };
 
-  const handleTagSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onTagFilter(tagValue);
-  };
-
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await onCreateNote(newNote);
-      setNewNote({ title: "", content: "", tag: "" });
-      setShowCreateForm(false);
-    } catch (error) {
-      console.error("Failed to create note:", error);
+  const handleTagFilter = (tag: NoteTag | "") => {
+    setSearchFilters((prev) => ({ ...prev, tag }));
+    if (onTagFilter) {
+      onTagFilter(tag);
     }
   };
 
   const handleDeleteNote = async (id: string) => {
     if (confirm("Are you sure you want to delete this note?")) {
-      await onDeleteNote(id);
+      try {
+        if (onDeleteNote) {
+          await onDeleteNote(id);
+        }
+        removeNote(id);
+      } catch (error) {
+        console.error("Failed to delete note:", error);
+        alert("Failed to delete note. Please try again.");
+      }
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  const handleCreateNote = () => {
+    if (onCreateNote && searchFilters.title && searchFilters.content) {
+      const noteData = {
+        title: searchFilters.title,
+        content: searchFilters.content,
+        ...(searchFilters.tag &&
+        NOTE_TAGS.includes(searchFilters.tag as NoteTag)
+          ? { tag: searchFilters.tag as NoteTag }
+          : {}),
+      };
+
+      onCreateNote(noteData);
+
+      // Reset form
+      setSearchFilters({
+        title: "",
+        content: "",
+        tag: "",
+      });
+    }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setSearchFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   return (
-    <div className={css.notesContainer}>
-      {/* Search and Filter */}
-      <div className={css.controls}>
-        <form onSubmit={handleSearchSubmit} className={css.searchForm}>
-          <input
-            type="text"
-            placeholder="Search notes..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            className={css.searchInput}
-          />
-          <button type="submit" className={css.searchButton}>
-            Search
-          </button>
+    <div className="space-y-6">
+      {/* Search and Filter Section */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-lg font-semibold mb-4">Search & Filter</h2>
+
+        <form onSubmit={handleSearchSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="title"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Search by title
+              </label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={searchFilters.title}
+                onChange={handleInputChange}
+                placeholder="Enter title..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="content"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Search by content
+              </label>
+              <input
+                type="text"
+                id="content"
+                name="content"
+                value={searchFilters.content}
+                onChange={handleInputChange}
+                placeholder="Enter content..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <div>
+              <label
+                htmlFor="tag"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Filter by tag
+              </label>
+              <select
+                id="tag"
+                name="tag"
+                value={searchFilters.tag}
+                onChange={handleInputChange}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All tags</option>
+                {NOTE_TAGS.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end space-x-2">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Search
+              </button>
+
+              {onCreateNote && searchFilters.title && searchFilters.content && (
+                <button
+                  type="button"
+                  onClick={handleCreateNote}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  Create Note
+                </button>
+              )}
+            </div>
+          </div>
         </form>
 
-        <form onSubmit={handleTagSubmit} className={css.filterForm}>
-          <input
-            type="text"
-            placeholder="Filter by tag..."
-            value={tagValue}
-            onChange={(e) => setTagValue(e.target.value)}
-            className={css.filterInput}
-          />
-          <button type="submit" className={css.filterButton}>
-            Filter
-          </button>
-        </form>
-
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className={css.createButton}
-        >
-          {showCreateForm ? "Cancel" : "Create Note"}
-        </button>
+        {/* Tag Filter Buttons */}
+        <div className="mt-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleTagFilter("")}
+              className={`px-3 py-1 rounded-full text-sm ${
+                searchFilters.tag === ""
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              All
+            </button>
+            {NOTE_TAGS.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => handleTagFilter(tag)}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  searchFilters.tag === tag
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Create Note Form */}
-      {showCreateForm && (
-        <form onSubmit={handleCreateSubmit} className={css.createForm}>
-          <h3>Create New Note</h3>
-          <input
-            type="text"
-            placeholder="Title"
-            value={newNote.title}
-            onChange={(e) =>
-              setNewNote((prev) => ({ ...prev, title: e.target.value }))
-            }
-            className={css.input}
-            required
-          />
-          <textarea
-            placeholder="Content"
-            value={newNote.content}
-            onChange={(e) =>
-              setNewNote((prev) => ({ ...prev, content: e.target.value }))
-            }
-            className={css.textarea}
-            rows={4}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Tag"
-            value={newNote.tag}
-            onChange={(e) =>
-              setNewNote((prev) => ({ ...prev, tag: e.target.value }))
-            }
-            className={css.input}
-            required
-          />
-          <button
-            type="submit"
-            className={css.submitButton}
-            disabled={isCreating}
-          >
-            {isCreating ? "Creating..." : "Create Note"}
-          </button>
-        </form>
-      )}
-
       {/* Notes List */}
-      {notes.length === 0 ? (
-        <div className={css.empty}>
-          <p>No notes found</p>
-          {(currentQuery.search || currentQuery.tag) && (
-            <p>Try adjusting your search or filter criteria.</p>
-          )}
-        </div>
-      ) : (
-        <div className={css.notesList}>
-          {(Array.isArray(notes) ? notes : []).map((note) => (
-            <div key={note.id} className={css.noteCard}>
-              <div className={css.noteHeader}>
-                <h3 className={css.noteTitle}>{note.title}</h3>
-                <button
-                  onClick={() => handleDeleteNote(note.id)}
-                  className={css.deleteButton}
-                  title="Delete note"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className={css.noteContent}>{note.content}</p>
-              <div className={css.noteFooter}>
-                <span className={css.noteTag}>{note.tag}</span>
-                <span className={css.noteDate}>
-                  {formatDate(note.createdAt)}
-                </span>
+      <div className="space-y-4">
+        {notes.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No notes found</p>
+            <p className="text-gray-400 mt-2">
+              Create your first note to get started!
+            </p>
+          </div>
+        ) : (
+          notes.map((note) => (
+            <div key={note.id} className="bg-white p-6 rounded-lg shadow-md">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <Link href={`/notes/${note.id}`}>
+                    <h3 className="text-xl font-semibold text-gray-900 hover:text-blue-600 cursor-pointer">
+                      {note.title}
+                    </h3>
+                  </Link>
+
+                  <p className="text-gray-600 mt-2 line-clamp-3">
+                    {note.content}
+                  </p>
+
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center space-x-4">
+                      {note.tag && (
+                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {note.tag}
+                        </span>
+                      )}
+
+                      <span className="text-sm text-gray-500">
+                        {new Date(note.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <Link
+                        href={`/notes/${note.id}/edit`}
+                        className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                      >
+                        Edit
+                      </Link>
+
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }

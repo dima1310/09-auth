@@ -3,9 +3,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function POST(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function POST(_request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const refreshToken = cookieStore.get("refreshToken")?.value;
 
     if (!refreshToken) {
@@ -85,7 +86,8 @@ async function validateRefreshToken(refreshToken: string): Promise<boolean> {
   return refreshToken.length > 0;
 }
 
-async function generateAccessToken(refreshToken: string): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function generateAccessToken(_refreshToken: string): Promise<string> {
   // This should generate a new JWT access token
   // You might want to decode the refresh token to get user info
 
