@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiClient, ApiError } from "../lib/api/clientApi";
-import { Note } from "../lib/store/authStore";
+import { Note } from "../lib/store/noteStore";
 
 // Типы для заметок (определяем локально)
 interface CreateNoteData {

@@ -5,8 +5,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUser } from "../../../lib/api/clientApi";
-import { useAuthStore } from "../../../lib/store/authStore";
-import type { LoginCredentials } from "../../../lib/store/authStore";
+import { useAuthStore } from "../../../lib/store/noteStore";
+import type { LoginCredentials } from "../../../lib/store/noteStore";
 
 export default function SignInPage() {
   const router = useRouter();

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useAuthStore } from "../../../lib/store/authStore";
+import { useAuthStore } from "../../../lib/store/noteStore";
 import Image from "next/image";
 import css from "./page.module.css";
 
