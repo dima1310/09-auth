@@ -109,3 +109,48 @@ export interface UpdateUserData {
   email?: string;
   avatar?: string;
 }
+// lib/types.ts
+
+// Экспортируем типы из authStore для совместимости
+
+// Дополнительные типы для заметок
+export interface CreateNoteData {
+  title: string;
+  content: string;
+  tag?: string;
+}
+
+export interface UpdateNoteData {
+  title?: string;
+  content?: string;
+  tag?: string;
+}
+
+export interface NotesQuery {
+  page?: number;
+  limit?: number;
+  tag?: string;
+  search?: string;
+}
+
+export interface NotesResponse {
+  notes: Note[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// Типы для API ответов
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  success: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

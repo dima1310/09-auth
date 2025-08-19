@@ -1,8 +1,22 @@
 // hooks/useNotes.ts
 
 import { useState, useEffect, useCallback } from "react";
-import { apiClient, ApiError } from "../lib/api/client";
-import { Note, CreateNoteData, NotesQuery } from "../lib/types";
+import { apiClient, ApiError } from "../lib/api/clientApi";
+import { Note } from "../lib/store/authStore";
+
+// Типы для заметок (определяем локально)
+interface CreateNoteData {
+  title: string;
+  content: string;
+  tag?: string;
+}
+
+interface NotesQuery {
+  page?: number;
+  limit?: number;
+  tag?: string;
+  search?: string;
+}
 
 interface UseNotesReturn {
   notes: Note[];
@@ -22,7 +36,7 @@ export function useNotes(initialQuery: NotesQuery = {}): UseNotesReturn {
   const [error, setError] = useState<string | null>(null);
   const [currentQuery, setCurrentQuery] = useState<NotesQuery>({
     page: 1,
-    perPage: 12,
+    limit: 12, // Используем limit вместо perPage
     ...initialQuery,
   });
 
@@ -30,8 +44,16 @@ export function useNotes(initialQuery: NotesQuery = {}): UseNotesReturn {
     try {
       setLoading(true);
       setError(null);
-      const fetchedNotes = await apiClient.getNotes(query);
-      setNotes(fetchedNotes);
+      const response = await apiClient.getNotes(query);
+
+      // Проверяем тип ответа и извлекаем заметки
+      if (response && typeof response === "object" && "notes" in response) {
+        setNotes(response.notes);
+      } else if (Array.isArray(response)) {
+        setNotes(response);
+      } else {
+        setNotes([]);
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -106,7 +128,7 @@ export function useNotes(initialQuery: NotesQuery = {}): UseNotesReturn {
   };
 }
 
-// Хук для роботи з окремою нотаткою
+// Хук для работы с отдельной заметкой
 export function useNote(id: string) {
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
