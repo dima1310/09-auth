@@ -11,14 +11,12 @@ import { register as registerUser } from "@/lib/api/clientApi";
 interface FormData {
   email: string;
   password: string;
-  confirmPassword: string;
 }
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
-    confirmPassword: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -38,11 +36,6 @@ export default function SignUpPage() {
     e.preventDefault();
     setError(null);
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
     if (formData.password.length < 6) {
       setError("Password must be at least 6 characters long");
       return;
@@ -51,13 +44,11 @@ export default function SignUpPage() {
     try {
       setLoading(true);
 
-      // Удаляем confirmPassword из данных для отправки
-      const { confirmPassword, ...registerData } = formData;
-      const user = await registerUser(registerData);
+      const user = await registerUser(formData);
 
-      // Логиним пользователя после успешной регистрации
+      // Логінимо користувача після успішної реєстрації
       login(user);
-      router.push("/notes");
+      router.push("/profile");
     } catch (err) {
       console.error("Registration failed:", err);
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -123,23 +114,6 @@ export default function SignUpPage() {
                 onChange={handleChange}
                 className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Password"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="sr-only">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Confirm password"
               />
             </div>
           </div>

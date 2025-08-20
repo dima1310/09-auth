@@ -1,7 +1,6 @@
 // app/api/notes/[id]/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { api } from "../../api";
 import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
@@ -15,32 +14,8 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
 
-    // Получаем все cookies и формируем Cookie header
-    const cookieHeader = cookieStore.toString();
-
-    const response = await api.get(`/notes/${id}`, {
-      headers: {
-        Cookie: cookieHeader,
-      },
-    });
-
-    // Парсим и устанавливаем куки из ответа, если они есть
-    const setCookieHeader = response.headers["set-cookie"];
-    if (setCookieHeader) {
-      setCookieHeader.forEach((cookie: string) => {
-        const [cookiePart] = cookie.split(";");
-        const [name, value] = cookiePart.split("=");
-        if (name && value) {
-          cookieStore.set(name.trim(), value.trim(), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-          });
-        }
-      });
-    }
+    const response = await api.get(`/notes/${id}`);
 
     return NextResponse.json(response.data);
   } catch (error) {
@@ -60,39 +35,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PUT /api/notes/[id] - Update specific note
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+// PATCH /api/notes/[id] - Update specific note
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-
-    // Получаем все cookies и формируем Cookie header
-    const cookieHeader = cookieStore.toString();
-
-    // Получаем тело запроса
     const body = await request.json();
 
-    const response = await api.put(`/notes/${id}`, body, {
-      headers: {
-        Cookie: cookieHeader,
-      },
-    });
-
-    // Парсим и устанавливаем куки из ответа, если они есть
-    const setCookieHeader = response.headers["set-cookie"];
-    if (setCookieHeader) {
-      setCookieHeader.forEach((cookie: string) => {
-        const [cookiePart] = cookie.split(";");
-        const [name, value] = cookiePart.split("=");
-        if (name && value) {
-          cookieStore.set(name.trim(), value.trim(), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-          });
-        }
-      });
-    }
+    const response = await api.patch(`/notes/${id}`, body);
 
     return NextResponse.json(response.data);
   } catch (error) {
@@ -116,32 +65,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
 
-    // Получаем все cookies и формируем Cookie header
-    const cookieHeader = cookieStore.toString();
-
-    const response = await api.delete(`/notes/${id}`, {
-      headers: {
-        Cookie: cookieHeader,
-      },
-    });
-
-    // Парсим и устанавливаем куки из ответа, если они есть
-    const setCookieHeader = response.headers["set-cookie"];
-    if (setCookieHeader) {
-      setCookieHeader.forEach((cookie: string) => {
-        const [cookiePart] = cookie.split(";");
-        const [name, value] = cookiePart.split("=");
-        if (name && value) {
-          cookieStore.set(name.trim(), value.trim(), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-          });
-        }
-      });
-    }
+    const response = await api.delete(`/notes/${id}`);
 
     return NextResponse.json(response.data);
   } catch (error) {

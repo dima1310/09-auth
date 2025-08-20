@@ -1,50 +1,59 @@
 // middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { cookies } from "next/headers";
+import { checkSession } from "./lib/api/serverApi";
 
 // Защищенные маршруты
-const protectedRoutes = ["/notes", "/profile", "/dashboard"];
+const protectedRoutes = ["/notes", "/profile"];
 
 // Публичные маршруты (страницы аутентификации)
-const authRoutes = ["/sign-in", "/sign-up", "/login", "/register"];
-
-// API маршруты, которые требуют аутентификации
-const protectedApiRoutes = ["/api/notes", "/api/users/me"];
+const authRoutes = ["/sign-in", "/sign-up"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Проверяем наличие токена аутентификации в cookies
-  const sessionToken = request.cookies.get("sessionToken")?.value;
-  const accessToken = request.cookies.get("accessToken")?.value;
-  const refreshToken = request.cookies.get("refreshToken")?.value;
-
-  // Проверяем, есть ли действующая сессия
-  const isAuthenticated = !!(sessionToken || accessToken);
+  // Используем асинхронную функцию cookies() из next/headers
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("accessToken")?.value;
+  const refreshToken = cookieStore.get("refreshToken")?.value;
 
   // Обработка защищенных маршрутов
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  // Обработка API маршрутов
-  const isProtectedApiRoute = protectedApiRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-
   // Обработка маршрутов аутентификации
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+
+  // Проверяем сессию через serverApi
+  let isAuthenticated = false;
+  try {
+    if (accessToken || refreshToken) {
+      const sessionResult = await checkSession();
+      isAuthenticated = !!sessionResult;
+    }
+  } catch (error) {
+    console.error("Session check failed in middleware:", error);
+    isAuthenticated = false;
+  }
+
+  // Если нет accessToken, но есть refreshToken, пытаемся обновить сессию
+  if (!accessToken && refreshToken && !isAuthenticated) {
+    try {
+      const sessionResult = await checkSession();
+      isAuthenticated = !!sessionResult;
+    } catch (error) {
+      console.error("Token refresh failed in middleware:", error);
+      isAuthenticated = false;
+    }
+  }
 
   // Если пользователь не аутентифицирован и пытается получить доступ к защищенному маршруту
   if (!isAuthenticated && isProtectedRoute) {
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(signInUrl);
-  }
-
-  // Если пользователь не аутентифицирован и обращается к защищенному API
-  if (!isAuthenticated && isProtectedApiRoute) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Если пользователь аутентифицирован и находится на странице входа/регистрации
@@ -55,40 +64,19 @@ export async function middleware(request: NextRequest) {
   }
 
   // Обновление сессии для аутентифицированных пользователей
-  if (isAuthenticated && refreshToken) {
+  if (isAuthenticated && refreshToken && !accessToken) {
     try {
-      // Проверяем, нужно ли обновить токен
-      const response = NextResponse.next();
+      // Попытка обновления сессии через checkSession
+      const sessionResult = await checkSession();
 
-      // Добавляем заголовки для обновления сессии
-      response.headers.set("x-middleware-cache", "no-cache");
-
-      // Попытка обновления токена через API
-      if (shouldRefreshToken(accessToken)) {
-        // Можно сделать запрос к API для обновления токена
-        const refreshResponse = await fetch(
-          new URL("/api/auth/refresh", request.url),
-          {
-            method: "GET",
-            headers: {
-              Cookie: request.headers.get("cookie") || "",
-            },
-          }
-        );
-
-        if (refreshResponse.ok) {
-          // Если токен успешно обновлен, обновляем cookies
-          const setCookieHeader = refreshResponse.headers.get("set-cookie");
-          if (setCookieHeader) {
-            response.headers.set("set-cookie", setCookieHeader);
-          }
-        }
+      if (sessionResult) {
+        const response = NextResponse.next();
+        response.headers.set("x-middleware-cache", "no-cache");
+        return response;
       }
-
-      return response;
     } catch (error) {
-      console.error("Token refresh failed:", error);
-      // В случае ошибки обновления токена, перенаправляем на вход
+      console.error("Session refresh failed:", error);
+      // В случае ошибки обновления сессии, перенаправляем на вход
       if (isProtectedRoute) {
         return NextResponse.redirect(new URL("/sign-in", request.url));
       }
@@ -98,38 +86,6 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Вспомогательная функция для проверки, нужно ли обновлять токен
-function shouldRefreshToken(accessToken?: string): boolean {
-  if (!accessToken) return false;
-
-  try {
-    // Простая проверка на основе времени создания токена
-    // В реальном приложении здесь была бы проверка JWT
-    const tokenParts = accessToken.split("_");
-    if (tokenParts.length > 1) {
-      const timestamp = parseInt(tokenParts[1]);
-      const now = Date.now();
-      const tokenAge = now - timestamp;
-
-      // Обновляем токен, если он старше 10 минут
-      return tokenAge > 10 * 60 * 1000;
-    }
-  } catch {
-    return true; // В случае ошибки парсинга, лучше обновить токен
-  }
-
-  return false;
-}
-
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public folder)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
-  ],
+  matcher: ["/profile/:path*", "/notes/:path*", "/sign-in", "/sign-up"],
 };

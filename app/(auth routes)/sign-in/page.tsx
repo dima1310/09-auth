@@ -42,7 +42,7 @@ export default function SignInPage() {
       setLoading(true);
       const user = await loginUser(formData);
       login(user);
-      router.push("/notes");
+      router.push("/profile"); // Змінено з "/notes" на "/profile"
     } catch (err) {
       console.error("Login failed:", err);
       setError(err instanceof Error ? err.message : "Login failed");

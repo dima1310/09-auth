@@ -5,7 +5,6 @@
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getNote } from "@/lib/api/clientApi";
-import type { Note } from "@/types/note";
 
 interface NotePreviewProps {
   noteId: string;

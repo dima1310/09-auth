@@ -49,13 +49,13 @@ export default function NoteList({
     tag: "",
   });
 
-  // Используем useMutation для удаления заметок
+  // Використовуємо useMutation для видалення заміток
   const deleteNoteMutation = useMutation({
     mutationFn: deleteNote,
     onSuccess: (_, noteId) => {
-      // Инвалидируем кэш после успешного удаления
+      // Інвалідуємо кеш після успішного видалення
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      // Удаляем из локального store
+      // Видаляємо з локального store
       removeNote(noteId);
     },
     onError: (error) => {
@@ -251,7 +251,7 @@ export default function NoteList({
             <div key={note.id} className="bg-white p-6 rounded-lg shadow-md">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  {/* Используем Link для навигации к детальной странице заметки */}
+                  {/* Використовуємо Link для навігації до детальної сторінки замітки */}
                   <Link href={`/notes/${note.id}`}>
                     <h3 className="text-xl font-semibold text-gray-900 hover:text-blue-600 cursor-pointer">
                       {note.title}
@@ -264,11 +264,16 @@ export default function NoteList({
 
                   <div className="flex items-center justify-between mt-4">
                     <div className="flex items-center space-x-4">
-                      {note.tag && (
-                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                          {note.tag}
-                        </span>
-                      )}
+                      {/* КРИТИЧНО: Тег завжди відображається в розмітці */}
+                      <span
+                        className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          note.tag
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {note.tag || "No tag"}
+                      </span>
 
                       <span className="text-sm text-gray-500">
                         {new Date(note.createdAt).toLocaleDateString()}

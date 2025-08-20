@@ -1,33 +1,41 @@
 // app/api/auth/logout/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { api } from "../../api";
+import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
-const API_BASE_URL = "https://notehub-api.goit.study";
-
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: "POST",
-      headers: {
-        Cookie: request.headers.get("cookie") || "",
-      },
-    });
+    const response = await api.post("/auth/logout");
+    const cookieStore = await cookies();
 
-    if (!response.ok) {
-      const data = await response.json();
-      return NextResponse.json(data, { status: response.status });
+    // Парсим и устанавливаем куки из ответа
+    const setCookieHeader = response.headers["set-cookie"];
+    if (setCookieHeader) {
+      setCookieHeader.forEach((cookie: string) => {
+        const [cookiePart] = cookie.split(";");
+        const [name, value] = cookiePart.split("=");
+        if (name && value) {
+          cookieStore.set(name.trim(), value.trim(), {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+          });
+        }
+      });
     }
 
-    // Очищаємо куки
-    const nextResponse = NextResponse.json({});
-    const cookies = response.headers.get("set-cookie");
-
-    if (cookies) {
-      nextResponse.headers.set("set-cookie", cookies);
-    }
-
-    return nextResponse;
+    return NextResponse.json(response.data);
   } catch (error) {
+    if (isAxiosError(error)) {
+      logErrorResponse(error);
+      return NextResponse.json(
+        error.response?.data || { message: "Logout failed" },
+        { status: error.response?.status || 500 }
+      );
+    }
+
     console.error("Logout API error:", error);
     return NextResponse.json(
       { message: "Internal server error" },

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getNote, deleteNote } from "@/lib/api/clientApi";
-import type { Note } from "@/types/note";
+// Видалено невикористаний імпорт type { Note }
 
 interface NoteDetailsClientProps {
   noteId: string;

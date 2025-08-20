@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NoteList from "@/components/NoteList/NoteList";
-import { Note } from "@/types/note";
+import { Note, NoteTag } from "@/types/note";
 import { useAuth } from "@/lib/store/authStore";
 import { getNotes, createNote } from "@/lib/api/clientApi";
 
@@ -53,20 +53,21 @@ export default function NotesPage() {
   const handleCreateNote = async (noteData: {
     title: string;
     content: string;
-    tag?: string;
+    tag?: NoteTag;
   }) => {
     try {
-      // Валидируем и приводим tag к правильному типу
-      const validTags = [
+      // Валідуємо та приводимо tag до правильного типу
+      const validTags: readonly NoteTag[] = [
         "Todo",
         "Work",
         "Personal",
         "Meeting",
         "Shopping",
-      ] as const;
+      ];
+
       const validatedTag =
-        noteData.tag && validTags.includes(noteData.tag as any)
-          ? (noteData.tag as Note["tag"])
+        noteData.tag && validTags.includes(noteData.tag)
+          ? noteData.tag
           : undefined;
 
       const createNoteData = {
@@ -92,7 +93,7 @@ export default function NotesPage() {
   }
 
   if (!isAuthenticated) {
-    return null; // Будет перенаправлен в useEffect
+    return null; // Буде перенаправлен в useEffect
   }
 
   if (error) {

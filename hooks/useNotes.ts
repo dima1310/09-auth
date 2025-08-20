@@ -1,7 +1,13 @@
 // hooks/useNotes.ts
 
 import { useState, useEffect, useCallback } from "react";
-import { apiClient, ApiError } from "../lib/api/clientApi";
+import {
+  getNotes,
+  createNote as createNoteAPI,
+  updateNote as updateNoteAPI,
+  deleteNote as deleteNoteAPI,
+  ApiError,
+} from "../lib/api/clientApi";
 import { Note, CreateNoteData, UpdateNoteData } from "@/types/note";
 
 interface UseNotesReturn {
@@ -25,16 +31,18 @@ export function useNotes(): UseNotesReturn {
       setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/notes");
-      if (!response.ok) {
-        throw new Error("Failed to fetch notes");
-      }
-
-      const data = await response.json();
-      setNotes(data.notes || []);
+      // Використовуємо getNotes з clientApi
+      const response = await getNotes();
+      setNotes(response.notes || []);
     } catch (err) {
       console.error("Failed to fetch notes:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch notes");
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to fetch notes");
+      }
     } finally {
       setLoading(false);
     }
@@ -43,25 +51,15 @@ export function useNotes(): UseNotesReturn {
   const createNote = useCallback(
     async (noteData: CreateNoteData): Promise<Note> => {
       try {
-        const response = await fetch("/api/notes", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(noteData),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to create note");
-        }
-
-        const data = await response.json();
-        const newNote = data.note;
-
+        // Використовуємо createNote з clientApi
+        const newNote = await createNoteAPI(noteData);
         setNotes((prev) => [newNote, ...prev]);
         return newNote;
       } catch (err) {
         console.error("Failed to create note:", err);
+        if (err instanceof ApiError) {
+          throw new Error(err.message);
+        }
         throw err;
       }
     },
@@ -71,28 +69,17 @@ export function useNotes(): UseNotesReturn {
   const updateNote = useCallback(
     async (id: string, noteData: UpdateNoteData): Promise<Note> => {
       try {
-        const response = await fetch(`/api/notes/${id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(noteData),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to update note");
-        }
-
-        const data = await response.json();
-        const updatedNote = data.note;
-
+        // Використовуємо updateNote з clientApi
+        const updatedNote = await updateNoteAPI(id, noteData);
         setNotes((prev) =>
           prev.map((note) => (note.id === id ? updatedNote : note))
         );
-
         return updatedNote;
       } catch (err) {
         console.error("Failed to update note:", err);
+        if (err instanceof ApiError) {
+          throw new Error(err.message);
+        }
         throw err;
       }
     },
@@ -101,17 +88,14 @@ export function useNotes(): UseNotesReturn {
 
   const deleteNote = useCallback(async (id: string): Promise<void> => {
     try {
-      const response = await fetch(`/api/notes/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete note");
-      }
-
+      // Використовуємо deleteNote з clientApi
+      await deleteNoteAPI(id);
       setNotes((prev) => prev.filter((note) => note.id !== id));
     } catch (err) {
       console.error("Failed to delete note:", err);
+      if (err instanceof ApiError) {
+        throw new Error(err.message);
+      }
       throw err;
     }
   }, []);

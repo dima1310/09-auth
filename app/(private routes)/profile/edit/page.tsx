@@ -4,60 +4,74 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/lib/store/authStore";
+import { updateUser as updateUserAPI } from "@/lib/api/clientApi";
 
 export default function EditProfilePage() {
   const { user, updateUser } = useAuth();
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const router = useRouter();
+
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const router = useRouter();
 
   useEffect(() => {
-    if (user) {
-      setEmail(user.email);
-      // Предполагаем, что username может быть частью email до @
-      setUsername(user.email.split("@")[0]);
+    if (!user) {
+      // Якщо користувач не авторизований, перенаправляємо на сторінку входу
+      router.push("/sign-in");
+      return;
     }
-  }, [user]);
+
+    // Спробуємо отримати збережений username або використаємо частину email
+    const savedUsername =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("userDisplayName")
+        : null;
+
+    setFormData({
+      username: savedUsername || user.email.split("@")[0],
+      email: user.email,
+    });
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Перевірка на null
+    if (!user) {
+      setError("User not found. Please log in again.");
+      return;
+    }
+
     setError("");
     setSuccess("");
     setIsLoading(true);
 
     try {
-      // Здесь должен быть API вызов для обновления профиля
-      const response = await fetch("/api/users/me", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          username,
-        }),
+      // Використовуємо функцію updateUser з clientApi
+      // Передаємо тільки ті поля, які існують в типі User
+      const updatedUser = await updateUserAPI({
+        id: user.id,
+        email: user.email,
+        // Додаткові поля можуть бути додані тут якщо вони підтримуються
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update profile");
+      // Оновлюємо користувача в store
+      updateUser(updatedUser);
+
+      // Зберігаємо username локально оскільки він не є частиною типу User
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("userDisplayName", formData.username);
       }
-
-      const updatedUser = await response.json();
-
-      // Обновляем пользователя в store
-      updateUser({
-        email: updatedUser.user.email,
-        // Добавляем другие поля если они есть
-      });
 
       setSuccess("Profile updated successfully!");
 
-      // Перенаправляем на страницу профиля через 2 секунды
+      // Перенаправляємо на сторінку профіля через 2 секунди
       setTimeout(() => {
         router.push("/profile");
       }, 2000);
@@ -73,6 +87,7 @@ export default function EditProfilePage() {
     router.push("/profile");
   };
 
+  // Перевірка авторизації
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -83,80 +98,134 @@ export default function EditProfilePage() {
     );
   }
 
+  // Генеруємо URL для аватара на основі username
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    formData.username
+  )}&size=120&background=3B82F6&color=fff&bold=true`;
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white shadow-md rounded-lg p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
-            Edit Profile
-          </h1>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-blue-600 text-white p-6">
+            <h1 className="text-2xl font-bold">Edit Profile</h1>
+            <p className="text-blue-100 mt-1">
+              Update your profile information
+            </p>
+          </div>
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label
-                htmlFor="username"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Username
-              </label>
-              <input
-                type="text"
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your username"
-              />
+          <div className="p-6">
+            {/* Avatar Section з Next.js Image компонентом - ОБОВ'ЯЗКОВО */}
+            <div className="flex flex-col items-center mb-8">
+              <div className="relative w-32 h-32 rounded-full overflow-hidden mb-4">
+                <Image
+                  src={avatarUrl}
+                  alt={`${formData.username} avatar`}
+                  width={128}
+                  height={128}
+                  className="object-cover"
+                  priority
+                />
+              </div>
+              <p className="text-sm text-gray-600">
+                Your avatar is generated based on your username
+              </p>
             </div>
 
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
 
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Updating..." : "Update Profile"}
-              </button>
+            {success && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                {success}
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Username
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={(e) =>
+                    setFormData({ ...formData, username: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Enter your username"
+                  required
+                  minLength={3}
+                  maxLength={30}
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  This will be your display name across the platform
+                </p>
+              </div>
+
+              {/* Email поле - ОБОВ'ЯЗКОВО READ-ONLY */}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+                  disabled
+                  readOnly
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Email cannot be changed
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  User ID
+                </label>
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 font-mono text-sm">
+                  {user.id}
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  Your unique identifier
+                </p>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={isLoading || !formData.username.trim()}
+                  className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                >
+                  {isLoading ? "Updating..." : "Update Profile"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isLoading}
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

@@ -1,47 +1,50 @@
 // app/(private routes)/profile/page.tsx
 
-"use client";
-
-import { useRouter } from "next/navigation";
+import { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { useAuth } from "@/lib/store/authStore";
+import { redirect } from "next/navigation";
+import { checkSession } from "@/lib/api/serverApi";
+import { cookies } from "next/headers";
 
-export default function ProfilePage() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
+export const metadata: Metadata = {
+  title: "My Profile",
+  description: "View and manage your user profile information",
+};
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      logout();
-      router.push("/sign-in");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
+// Server Action для logout винесена окремо
+async function handleLogout() {
+  "use server";
 
+  // Видаляємо auth cookies
+  const cookieStore = await cookies();
+  cookieStore.delete("accessToken");
+  cookieStore.delete("refreshToken");
+
+  // Перенаправляємо на сторінку входу
+  redirect("/sign-in");
+}
+
+export default async function ProfilePage() {
+  // Отримуємо дані користувача через серверну функцію
+  const user = await checkSession();
+
+  // Якщо користувач не авторизований, перенаправляємо на сторінку входу
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Please log in to view your profile.</p>
-          <Link
-            href="/sign-in"
-            className="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
-    );
+    redirect("/sign-in");
   }
 
-  // Извлекаем username из email (часть до @)
+  // Витягуємо username з email (частина до @)
   const username = user.email.split("@")[0];
+
+  // Генеруємо URL для аватара (можна використовувати сервіс типу UI Avatars)
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    username
+  )}&size=80&background=3B82F6&color=fff&bold=true`;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           {/* Header */}
           <div className="bg-blue-600 text-white p-6">
@@ -54,9 +57,16 @@ export default function ProfilePage() {
           {/* Profile Content */}
           <div className="p-6">
             <div className="flex items-center space-x-6 mb-8">
-              {/* Profile Avatar */}
-              <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                {username.charAt(0).toUpperCase()}
+              {/* Profile Avatar using Next.js Image component */}
+              <div className="relative w-20 h-20 rounded-full overflow-hidden flex-shrink-0">
+                <Image
+                  src={avatarUrl}
+                  alt={`${username} avatar`}
+                  width={80}
+                  height={80}
+                  className="object-cover"
+                  priority
+                />
               </div>
 
               {/* Profile Info */}
@@ -72,24 +82,24 @@ export default function ProfilePage() {
             {/* Account Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
                   Account Information
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-gray-500 block">
                       Username:
                     </span>
                     <p className="text-gray-900">{username}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-gray-500 block">
                       Email:
                     </span>
                     <p className="text-gray-900">{user.email}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-gray-500 block">
                       User ID:
                     </span>
                     <p className="text-gray-900 font-mono text-sm">{user.id}</p>
@@ -98,21 +108,27 @@ export default function ProfilePage() {
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
                   Quick Stats
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-gray-500 block">
                       Account Status:
                     </span>
                     <p className="text-green-600 font-medium">Active</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-gray-500 block">
                       Member Since:
                     </span>
                     <p className="text-gray-900">Recently joined</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500 block">
+                      Total Notes:
+                    </span>
+                    <p className="text-gray-900">0</p>
                   </div>
                 </div>
               </div>
@@ -122,24 +138,27 @@ export default function ProfilePage() {
             <div className="flex flex-wrap gap-4">
               <Link
                 href="/profile/edit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 inline-block text-center"
               >
                 Edit Profile
               </Link>
 
               <Link
                 href="/notes"
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200 inline-block text-center"
               >
                 My Notes
               </Link>
 
-              <button
-                onClick={handleLogout}
-                className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-              >
-                Logout
-              </button>
+              {/* Logout form with Server Action */}
+              <form action={handleLogout} className="inline-block">
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+                >
+                  Logout
+                </button>
+              </form>
             </div>
           </div>
         </div>

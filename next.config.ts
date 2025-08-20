@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "ac.goit.global",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "example.com",
         port: "",
         pathname: "/**",
