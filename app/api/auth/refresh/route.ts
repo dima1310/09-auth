@@ -1,113 +1,74 @@
 // app/api/auth/refresh/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const cookieStore = await cookies();
     const refreshToken = cookieStore.get("refreshToken")?.value;
 
     if (!refreshToken) {
       return NextResponse.json(
-        { error: "No refresh token provided" },
+        { error: "Refresh token not found" },
         { status: 401 }
       );
     }
 
-    // Here you would typically:
-    // 1. Validate the refresh token
-    // 2. Check if it's not expired
-    // 3. Generate a new access token
-    // 4. Optionally generate a new refresh token
+    // Verify refresh token
+    const payload = jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_SECRET!
+    ) as { userId: string };
 
-    // For demo purposes, we'll simulate token refresh
-    const isValidRefreshToken = await validateRefreshToken(refreshToken);
-
-    if (!isValidRefreshToken) {
-      // Clear invalid refresh token
-      const response = NextResponse.json(
+    if (!payload) {
+      return NextResponse.json(
         { error: "Invalid refresh token" },
         { status: 401 }
       );
-
-      response.cookies.set("refreshToken", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0, // Delete cookie
-      });
-
-      return response;
     }
 
     // Generate new tokens
-    const newAccessToken = await generateAccessToken(refreshToken);
-    const newRefreshToken = await generateRefreshToken();
+    const accessToken = jwt.sign(
+      { userId: payload.userId },
+      process.env.JWT_SECRET!,
+      { expiresIn: "15m" }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { userId: payload.userId },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: "7d" }
+    );
 
     const response = NextResponse.json({
-      message: "Token refreshed successfully",
-      accessToken: newAccessToken,
+      message: "Tokens refreshed successfully",
+      user: {
+        id: payload.userId,
+      },
     });
 
-    // Set new refresh token as httpOnly cookie
+    response.cookies.set("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60, // 15 minutes
+    });
+
     response.cookies.set("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-
-    // Optionally set access token as cookie too
-    response.cookies.set("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 15, // 15 minutes
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
     });
 
     return response;
   } catch (error) {
-    console.error("Token refresh error:", error);
+    console.error("Refresh token error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to refresh token" },
       { status: 500 }
     );
   }
-}
-
-// Mock functions - replace with your actual implementation
-async function validateRefreshToken(refreshToken: string): Promise<boolean> {
-  // This should validate the refresh token against your database
-  // Check if it exists, not expired, not revoked, etc.
-
-  // For demo purposes, just check if it's not empty
-  return refreshToken.length > 0;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function generateAccessToken(_refreshToken: string): Promise<string> {
-  // This should generate a new JWT access token
-  // You might want to decode the refresh token to get user info
-
-  // For demo purposes, return a mock token
-  return `access_token_${Date.now()}_${Math.random()
-    .toString(36)
-    .substr(2, 9)}`;
-}
-
-async function generateRefreshToken(): Promise<string> {
-  // This should generate a new refresh token
-  // Store it in your database associated with the user
-
-  // For demo purposes, return a mock token
-  return `refresh_token_${Date.now()}_${Math.random()
-    .toString(36)
-    .substr(2, 9)}`;
-}
-
-// Optional: Handle other HTTP methods
-export async function GET() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
 }

@@ -1,33 +1,42 @@
 // app/api/auth/session/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
-const API_BASE_URL = "https://notehub-api.goit.study";
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/session`, {
-      method: "GET",
-      headers: {
-        Cookie: request.headers.get("cookie") || "",
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("accessToken")?.value;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Access token not found" },
+        { status: 401 }
+      );
+    }
+
+    // Verify access token
+    const payload = jwt.verify(accessToken, process.env.JWT_SECRET!) as {
+      userId: string;
+    };
+
+    if (!payload) {
+      return NextResponse.json(
+        { error: "Invalid access token" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({
+      user: {
+        id: payload.userId,
       },
     });
-
-    if (response.status === 401) {
-      return NextResponse.json(null, { status: 200 });
-    }
-
-    if (!response.ok) {
-      const data = await response.json();
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
   } catch (error) {
-    console.error("Session API error:", error);
+    console.error("Session check error:", error);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Failed to check session" },
       { status: 500 }
     );
   }

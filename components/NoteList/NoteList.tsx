@@ -4,8 +4,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Note, NoteTag } from "@/types/note";
 import { useNoteActions } from "@/lib/store/noteStore";
+import { deleteNote } from "@/lib/api/clientApi";
 
 interface NoteListProps {
   notes: Note[];
@@ -16,7 +18,6 @@ interface NoteListProps {
     content: string;
     tag?: NoteTag;
   }) => void;
-  onDeleteNote?: (id: string) => void;
 }
 
 interface SearchFilters {
@@ -38,14 +39,29 @@ export default function NoteList({
   onSearch,
   onTagFilter,
   onCreateNote,
-  onDeleteNote,
 }: NoteListProps) {
   const { removeNote } = useNoteActions();
+  const queryClient = useQueryClient();
 
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({
     title: "",
     content: "",
     tag: "",
+  });
+
+  // Используем useMutation для удаления заметок
+  const deleteNoteMutation = useMutation({
+    mutationFn: deleteNote,
+    onSuccess: (_, noteId) => {
+      // Инвалидируем кэш после успешного удаления
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      // Удаляем из локального store
+      removeNote(noteId);
+    },
+    onError: (error) => {
+      console.error("Failed to delete note:", error);
+      alert("Failed to delete note. Please try again.");
+    },
   });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -65,15 +81,7 @@ export default function NoteList({
 
   const handleDeleteNote = async (id: string) => {
     if (confirm("Are you sure you want to delete this note?")) {
-      try {
-        if (onDeleteNote) {
-          await onDeleteNote(id);
-        }
-        removeNote(id);
-      } catch (error) {
-        console.error("Failed to delete note:", error);
-        alert("Failed to delete note. Please try again.");
-      }
+      deleteNoteMutation.mutate(id);
     }
   };
 
@@ -243,6 +251,7 @@ export default function NoteList({
             <div key={note.id} className="bg-white p-6 rounded-lg shadow-md">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
+                  {/* Используем Link для навигации к детальной странице заметки */}
                   <Link href={`/notes/${note.id}`}>
                     <h3 className="text-xl font-semibold text-gray-900 hover:text-blue-600 cursor-pointer">
                       {note.title}
@@ -276,9 +285,12 @@ export default function NoteList({
 
                       <button
                         onClick={() => handleDeleteNote(note.id)}
-                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                        disabled={deleteNoteMutation.isPending}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Delete
+                        {deleteNoteMutation.isPending
+                          ? "Deleting..."
+                          : "Delete"}
                       </button>
                     </div>
                   </div>

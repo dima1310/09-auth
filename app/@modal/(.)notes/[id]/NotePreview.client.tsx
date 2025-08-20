@@ -2,40 +2,29 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api/clientApi";
-import { Note } from "@/lib/store/authStore";
+import { useQuery } from "@tanstack/react-query";
+import { getNote } from "@/lib/api/clientApi";
+import type { Note } from "@/types/note";
 
 interface NotePreviewProps {
   noteId: string;
 }
 
 export default function NotePreviewClient({ noteId }: NotePreviewProps) {
-  const [note, setNote] = useState<Note | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const loadNote = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const fetchedNote = await apiClient.getNote(noteId);
-        setNote(fetchedNote);
-      } catch (err) {
-        console.error("Failed to load note:", err);
-        setError("Failed to load note");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (noteId) {
-      loadNote();
-    }
-  }, [noteId]);
+  // Используем useQuery для получения данных заметки
+  const {
+    data: note,
+    isLoading,
+    error,
+    isError,
+  } = useQuery({
+    queryKey: ["note", noteId],
+    queryFn: () => getNote(noteId),
+    enabled: !!noteId, // Запрос выполняется только если noteId существует
+  });
 
   const handleClose = () => {
     router.back();
@@ -47,7 +36,7 @@ export default function NotePreviewClient({ noteId }: NotePreviewProps) {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
@@ -60,16 +49,17 @@ export default function NotePreviewClient({ noteId }: NotePreviewProps) {
     );
   }
 
-  if (error || !note) {
+  if (isError || !note) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Note not found";
+
     return (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
         onClick={handleBackdropClick}
       >
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-          <div className="text-center text-red-600">
-            {error || "Note not found"}
-          </div>
+          <div className="text-center text-red-600">{errorMessage}</div>
           <button
             onClick={handleClose}
             className="mt-4 w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"

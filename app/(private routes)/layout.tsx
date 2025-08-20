@@ -1,8 +1,8 @@
 // app/(private-routes)/layout.tsx
 
-import AuthProvider from "../../components/AuthProvider/AuthProvider";
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import QueryProvider from "../../components/QueryProvider/QueryProvider";
-import Header from "../../components/Header/Header";
+import Header from "@/components/Header/Header";
 
 export default function PrivateLayout({
   children,

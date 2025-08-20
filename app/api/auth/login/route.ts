@@ -1,35 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/auth/login/route.ts
 
-const API_BASE_URL = "https://notehub-api.goit.study";
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { api } from "../../api";
+import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const response = await api.post("/auth/login", body);
 
-    const data = await response.json();
+    const cookieStore = await cookies();
 
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+    // Парсим и устанавливаем куки из ответа
+    const setCookieHeader = response.headers["set-cookie"];
+    if (setCookieHeader) {
+      setCookieHeader.forEach((cookie: string) => {
+        const [cookiePart] = cookie.split(";");
+        const [name, value] = cookiePart.split("=");
+        if (name && value) {
+          cookieStore.set(name.trim(), value.trim(), {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+          });
+        }
+      });
     }
 
-    // Передаємо куки з відповіді бекенда
-    const cookies = response.headers.get("set-cookie");
-    const nextResponse = NextResponse.json(data);
-
-    if (cookies) {
-      nextResponse.headers.set("set-cookie", cookies);
-    }
-
-    return nextResponse;
+    return NextResponse.json(response.data);
   } catch (error) {
+    if (isAxiosError(error)) {
+      logErrorResponse(error);
+      return NextResponse.json(
+        error.response?.data || { message: "Login failed" },
+        { status: error.response?.status || 500 }
+      );
+    }
+
     console.error("Login API error:", error);
     return NextResponse.json(
       { message: "Internal server error" },

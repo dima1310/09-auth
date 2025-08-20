@@ -1,6 +1,6 @@
 // lib/api/serverApi.ts
 
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import { cookies } from "next/headers";
 import { User } from "../../types/user";
 import { Note, NotesQuery } from "../../types/note";
@@ -22,16 +22,17 @@ const createServerApiClient = async () => {
 };
 
 // Серверні функції для роботи з API
-export const getServerSession = async (): Promise<User | null> => {
-  try {
-    const client = await createServerApiClient();
-    const response = await client.get("/auth/session");
-    return response.data;
-  } catch (error) {
-    console.error("Server session check failed:", error);
-    return null;
-  }
-};
+export const getServerSession =
+  async (): Promise<AxiosResponse<User> | null> => {
+    try {
+      const client = await createServerApiClient();
+      const response = await client.get("/auth/session");
+      return response;
+    } catch (error) {
+      console.error("Server session check failed:", error);
+      return null;
+    }
+  };
 
 export const getServerCurrentUser = async (): Promise<User | null> => {
   try {

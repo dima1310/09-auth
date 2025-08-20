@@ -1,58 +1,39 @@
 // app/api/users/me/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
-const API_BASE_URL = "https://notehub-api.goit.study";
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const response = await fetch(`${API_BASE_URL}/users/me`, {
-      method: "GET",
-      headers: {
-        Cookie: request.headers.get("cookie") || "",
-      },
-    });
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("accessToken")?.value;
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+    if (!accessToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Users GET API error:", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
+    // Verify access token
+    const payload = jwt.verify(accessToken, process.env.JWT_SECRET!) as {
+      userId: string;
+    };
 
-export async function PATCH(request: NextRequest) {
-  try {
-    const body = await request.json();
-
-    const response = await fetch(`${API_BASE_URL}/users/me`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: request.headers.get("cookie") || "",
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+    if (!payload) {
+      return NextResponse.json(
+        { error: "Invalid access token" },
+        { status: 401 }
+      );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({
+      user: {
+        id: payload.userId,
+      },
+    });
   } catch (error) {
-    console.error("Users PATCH API error:", error);
+    console.error("Get user error:", error);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Failed to get user data" },
       { status: 500 }
     );
   }

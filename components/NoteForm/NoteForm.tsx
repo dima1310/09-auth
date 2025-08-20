@@ -2,23 +2,17 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createNote } from "@/lib/api/clientApi";
 import type { NoteTag } from "@/types/note";
-import { useNoteStore } from "@/lib/store/noteStore";
+import { useNoteDraftStore } from "@/lib/store/noteDraftStore";
 
 interface CreateNotePayload {
   title: string;
   content: string;
   tag?: NoteTag;
-}
-
-interface NoteDraft {
-  title: string;
-  content: string;
-  tag: NoteTag | "";
 }
 
 const NOTE_TAGS: NoteTag[] = [
@@ -32,35 +26,22 @@ const NOTE_TAGS: NoteTag[] = [
 export default function NoteForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { addNote } = useNoteStore();
 
-  const [localDraft, setLocalDraft] = useState<NoteDraft>({
-    title: "",
-    content: "",
-    tag: "",
-  });
-
-  const [error, setError] = useState<string | null>(null);
+  // Используем глобальное черновое состояние
+  const { draft, setTitle, setContent, setTag, resetDraft, error, setError } =
+    useNoteDraftStore();
 
   const createNoteMutation = useMutation({
     mutationFn: createNote,
     onSuccess: (newNote) => {
-      // Add to note store
-      addNote(newNote);
-
       // Invalidate and refetch notes
       queryClient.invalidateQueries({ queryKey: ["notes"] });
 
+      // Reset draft after successful creation
+      resetDraft();
+
       // Navigate to the new note
       router.push(`/notes/${newNote.id}`);
-
-      // Reset form
-      setLocalDraft({
-        title: "",
-        content: "",
-        tag: "",
-      });
-      setError(null);
     },
     onError: (error) => {
       console.error("Failed to create note:", error);
@@ -76,10 +57,19 @@ export default function NoteForm() {
     >
   ) => {
     const { name, value } = e.target;
-    setLocalDraft((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+
+    // Обновляем глобальное черновое состояние
+    switch (name) {
+      case "title":
+        setTitle(value);
+        break;
+      case "content":
+        setContent(value);
+        break;
+      case "tag":
+        setTag(value as NoteTag | "");
+        break;
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -87,23 +77,23 @@ export default function NoteForm() {
     setError(null);
 
     // Validation
-    if (!localDraft.title.trim()) {
+    if (!draft.title.trim()) {
       setError("Title is required");
       return;
     }
 
-    if (!localDraft.content.trim()) {
+    if (!draft.content.trim()) {
       setError("Content is required");
       return;
     }
 
     // Prepare note data
     const noteData: CreateNotePayload = {
-      title: localDraft.title.trim(),
-      content: localDraft.content.trim(),
+      title: draft.title.trim(),
+      content: draft.content.trim(),
       // Only include tag if it's not empty and is a valid NoteTag
-      ...(localDraft.tag && NOTE_TAGS.includes(localDraft.tag as NoteTag)
-        ? { tag: localDraft.tag as NoteTag }
+      ...(draft.tag && NOTE_TAGS.includes(draft.tag as NoteTag)
+        ? { tag: draft.tag as NoteTag }
         : {}),
     };
 
@@ -111,6 +101,7 @@ export default function NoteForm() {
   };
 
   const handleCancel = () => {
+    resetDraft();
     router.push("/notes");
   };
 
@@ -140,7 +131,7 @@ export default function NoteForm() {
               type="text"
               id="title"
               name="title"
-              value={localDraft.title}
+              value={draft.title}
               onChange={handleInputChange}
               required
               placeholder="Enter note title..."
@@ -159,7 +150,7 @@ export default function NoteForm() {
             <select
               id="tag"
               name="tag"
-              value={localDraft.tag}
+              value={draft.tag}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
@@ -183,7 +174,7 @@ export default function NoteForm() {
             <textarea
               id="content"
               name="content"
-              value={localDraft.content}
+              value={draft.content}
               onChange={handleInputChange}
               required
               rows={10}

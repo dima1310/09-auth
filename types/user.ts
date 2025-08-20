@@ -3,11 +3,8 @@
 export interface User {
   id: string;
   email: string;
-  username?: string;
-  name?: string;
-  avatar?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoginCredentials {
@@ -18,10 +15,15 @@ export interface LoginCredentials {
 export interface RegisterCredentials {
   email: string;
   password: string;
+  name?: string;
 }
 
-export interface UpdateUserData {
-  username?: string;
+export interface UserProfile {
+  id: string;
+  email: string;
   name?: string;
-  email?: string;
+  avatar?: string;
+  bio?: string;
+  createdAt: string;
+  updatedAt: string;
 }

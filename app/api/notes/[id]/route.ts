@@ -2,6 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { api } from "../../api";
+import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
 interface RouteParams {
   params: Promise<{
@@ -13,34 +15,46 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-
-    // Verify authentication
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
 
-    if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Получаем все cookies и формируем Cookie header
+    const cookieHeader = cookieStore.toString();
+
+    const response = await api.get(`/notes/${id}`, {
+      headers: {
+        Cookie: cookieHeader,
+      },
+    });
+
+    // Парсим и устанавливаем куки из ответа, если они есть
+    const setCookieHeader = response.headers["set-cookie"];
+    if (setCookieHeader) {
+      setCookieHeader.forEach((cookie: string) => {
+        const [cookiePart] = cookie.split(";");
+        const [name, value] = cookiePart.split("=");
+        if (name && value) {
+          cookieStore.set(name.trim(), value.trim(), {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+          });
+        }
+      });
     }
 
-    // Get user ID from token (you'd implement this based on your auth system)
-    const userId = await getUserIdFromToken(accessToken);
-
-    if (!userId) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    // Fetch note from database
-    const note = await getNoteById(id, userId);
-
-    if (!note) {
-      return NextResponse.json({ error: "Note not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(note);
+    return NextResponse.json(response.data);
   } catch (error) {
+    if (isAxiosError(error)) {
+      logErrorResponse(error);
+      return NextResponse.json(
+        error.response?.data || { message: "Failed to fetch note" },
+        { status: error.response?.status || 500 }
+      );
+    }
+
     console.error("Get note error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { message: "Internal server error" },
       { status: 500 }
     );
   }
@@ -50,51 +64,49 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const cookieStore = await cookies();
+
+    // Получаем все cookies и формируем Cookie header
+    const cookieHeader = cookieStore.toString();
+
+    // Получаем тело запроса
     const body = await request.json();
 
-    // Verify authentication
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
-
-    if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = await getUserIdFromToken(accessToken);
-
-    if (!userId) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    // Validate request body
-    const { title, content, tag } = body;
-
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: "Title and content are required" },
-        { status: 400 }
-      );
-    }
-
-    // Update note in database
-    const updatedNote = await updateNote(id, userId, {
-      title,
-      content,
-      tag,
+    const response = await api.put(`/notes/${id}`, body, {
+      headers: {
+        Cookie: cookieHeader,
+      },
     });
 
-    if (!updatedNote) {
+    // Парсим и устанавливаем куки из ответа, если они есть
+    const setCookieHeader = response.headers["set-cookie"];
+    if (setCookieHeader) {
+      setCookieHeader.forEach((cookie: string) => {
+        const [cookiePart] = cookie.split(";");
+        const [name, value] = cookiePart.split("=");
+        if (name && value) {
+          cookieStore.set(name.trim(), value.trim(), {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+          });
+        }
+      });
+    }
+
+    return NextResponse.json(response.data);
+  } catch (error) {
+    if (isAxiosError(error)) {
+      logErrorResponse(error);
       return NextResponse.json(
-        { error: "Note not found or unauthorized" },
-        { status: 404 }
+        error.response?.data || { message: "Failed to update note" },
+        { status: error.response?.status || 500 }
       );
     }
 
-    return NextResponse.json(updatedNote);
-  } catch (error) {
     console.error("Update note error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { message: "Internal server error" },
       { status: 500 }
     );
   }
@@ -104,96 +116,47 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-
-    // Verify authentication
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
 
-    if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Получаем все cookies и формируем Cookie header
+    const cookieHeader = cookieStore.toString();
+
+    const response = await api.delete(`/notes/${id}`, {
+      headers: {
+        Cookie: cookieHeader,
+      },
+    });
+
+    // Парсим и устанавливаем куки из ответа, если они есть
+    const setCookieHeader = response.headers["set-cookie"];
+    if (setCookieHeader) {
+      setCookieHeader.forEach((cookie: string) => {
+        const [cookiePart] = cookie.split(";");
+        const [name, value] = cookiePart.split("=");
+        if (name && value) {
+          cookieStore.set(name.trim(), value.trim(), {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+          });
+        }
+      });
     }
 
-    const userId = await getUserIdFromToken(accessToken);
-
-    if (!userId) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    // Delete note from database
-    const deleted = await deleteNote(id, userId);
-
-    if (!deleted) {
+    return NextResponse.json(response.data);
+  } catch (error) {
+    if (isAxiosError(error)) {
+      logErrorResponse(error);
       return NextResponse.json(
-        { error: "Note not found or unauthorized" },
-        { status: 404 }
+        error.response?.data || { message: "Failed to delete note" },
+        { status: error.response?.status || 500 }
       );
     }
 
-    return NextResponse.json({ message: "Note deleted successfully" });
-  } catch (error) {
     console.error("Delete note error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { message: "Internal server error" },
       { status: 500 }
     );
   }
-}
-
-// Mock database functions - replace with your actual implementation
-async function getUserIdFromToken(token: string): Promise<string | null> {
-  // This should decode and validate the JWT token
-  // Return the user ID if valid, null otherwise
-
-  // For demo purposes, extract user ID from token
-  // In real implementation, you'd use a JWT library
-  try {
-    // Mock validation - in real app, decode JWT
-    return token.includes("user_") ? "user_123" : null;
-  } catch {
-    return null;
-  }
-}
-
-async function getNoteById(id: string, userId: string) {
-  // This should fetch the note from your database
-  // Make sure the note belongs to the user
-
-  // Mock note data
-  return {
-    id,
-    title: `Sample Note ${id}`,
-    content: `This is the content of note ${id}`,
-    tag: "sample",
-    userId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-async function updateNote(
-  id: string,
-  userId: string,
-  data: { title: string; content: string; tag?: string }
-) {
-  // This should update the note in your database
-  // Make sure the note belongs to the user
-
-  // Mock updated note
-  return {
-    id,
-    ...data,
-    userId,
-    createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function deleteNote(_id: string, _userId: string): Promise<boolean> {
-  // This should delete the note from your database
-  // Make sure the note belongs to the user
-  // Return true if deleted, false if not found
-
-  // Mock deletion - always return true for demo
-  return true;
 }

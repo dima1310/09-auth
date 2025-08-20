@@ -1,189 +1,214 @@
 // lib/api/clientApi.ts
 
+import axios from "axios";
 import {
   User,
   LoginCredentials,
   RegisterCredentials,
-  Note,
 } from "@/lib/store/authStore";
+import { Note, CreateNoteData, UpdateNoteData } from "@/types/note";
+import { AxiosError } from "axios";
 
-// Типы для API
-interface CreateNotePayload {
-  title: string;
-  content: string;
-  tag?: string;
-}
-
-interface UpdateNotePayload {
-  title?: string;
-  content?: string;
-  tag?: string;
-}
-
-interface NotesResponse {
-  notes: Note[];
-  total: number;
-  page: number;
-  limit: number;
-}
+// Create axios instance with base configuration
+const api = axios.create({
+  baseURL: "/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});
 
 export class ApiError extends Error {
-  constructor(message: string, public status?: number) {
+  constructor(message: string, public status: number, public code?: string) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-class ClientApi {
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
-        credentials: "include", // для работы с куками
-        ...options,
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Request failed";
-        let errorData: { message?: string; error?: string } = {};
-
-        try {
-          errorData = await response.json();
-          errorMessage =
-            errorData.message ||
-            errorData.error ||
-            `HTTP ${response.status}: ${response.statusText}`;
-        } catch {
-          // Если не удается распарсить JSON, используем статус ответа
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-
-        throw new ApiError(errorMessage, response.status);
-      }
-
-      // Проверяем, есть ли контент для парсинга
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        return response.json();
-      } else {
-        // Для DELETE и других запросов без тела ответа
-        return {} as T;
-      }
-    } catch (error) {
-      // Если это уже ApiError, просто пробрасываем
-      if (error instanceof ApiError) {
-        throw error;
-      }
-
-      // Для других ошибок (например, сетевых)
+// Auth API
+export const loginUser = async (
+  credentials: LoginCredentials
+): Promise<User> => {
+  try {
+    const response = await api.post("/auth/login", credentials);
+    return response.data.user;
+  } catch (error) {
+    if (error instanceof AxiosError) {
       throw new ApiError(
-        error instanceof Error ? error.message : "Network error occurred",
-        0
+        error.response?.data?.error || "Login failed",
+        error.response?.status || 500
       );
     }
+    throw error;
   }
+};
 
-  async login(credentials: LoginCredentials): Promise<User> {
-    return this.request<User>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    });
+export const register = async (
+  credentials: RegisterCredentials
+): Promise<User> => {
+  try {
+    const response = await api.post("/auth/register", credentials);
+    return response.data.user;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Registration failed",
+        error.response?.status || 500
+      );
+    }
+    throw error;
   }
+};
 
-  async register(credentials: RegisterCredentials): Promise<User> {
-    return this.request<User>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    });
+export const logout = async (): Promise<void> => {
+  try {
+    await api.post("/auth/logout");
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Logout failed",
+        error.response?.status || 500
+      );
+    }
+    throw error;
   }
+};
 
-  async logout(): Promise<void> {
-    return this.request<void>("/auth/logout", {
-      method: "POST",
-    });
+export const checkSession = async (): Promise<User> => {
+  try {
+    const response = await api.get("/auth/session");
+    return response.data.user;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Session check failed",
+        error.response?.status || 500
+      );
+    }
+    throw error;
   }
+};
 
-  async checkSession(): Promise<User> {
-    return this.request<User>("/auth/session");
+export const updateUser = async (userData: Partial<User>): Promise<User> => {
+  try {
+    const response = await api.put("/users/me", userData);
+    return response.data.user;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Failed to update user",
+        error.response?.status || 500
+      );
+    }
+    throw error;
   }
+};
 
-  async updateUser(userData: Partial<User>): Promise<User> {
-    return this.request<User>("/auth/user", {
-      method: "PATCH",
-      body: JSON.stringify(userData),
-    });
-  }
-
-  // Методы для заметок
-  async getNotes(params?: {
-    page?: number;
-    limit?: number;
-    tag?: string;
-    search?: string;
-  }): Promise<NotesResponse> {
-    const searchParams = new URLSearchParams();
-    if (params?.page) searchParams.append("page", params.page.toString());
-    if (params?.limit) searchParams.append("limit", params.limit.toString());
-    if (params?.tag) searchParams.append("tag", params.tag);
-    if (params?.search) searchParams.append("search", params.search);
-
-    const query = searchParams.toString();
-    return this.request<NotesResponse>(`/notes${query ? `?${query}` : ""}`);
-  }
-
-  async createNote(noteData: CreateNotePayload): Promise<Note> {
-    return this.request<Note>("/notes", {
-      method: "POST",
-      body: JSON.stringify(noteData),
-    });
-  }
-
-  async updateNote(id: string, noteData: UpdateNotePayload): Promise<Note> {
-    return this.request<Note>(`/notes/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(noteData),
-    });
-  }
-
-  async deleteNote(id: string): Promise<void> {
-    return this.request<void>(`/notes/${id}`, {
-      method: "DELETE",
-    });
-  }
-
-  async getNote(id: string): Promise<Note> {
-    return this.request<Note>(`/notes/${id}`);
-  }
-}
-
-export const apiClient = new ClientApi();
-
-// Экспорты функций для обратной совместимости
-export const loginUser = (credentials: LoginCredentials) =>
-  apiClient.login(credentials);
-export const registerUser = (credentials: RegisterCredentials) =>
-  apiClient.register(credentials);
-export const logoutUser = () => apiClient.logout();
-export const checkSession = () => apiClient.checkSession();
-export const updateCurrentUser = (userData: Partial<User>) =>
-  apiClient.updateUser(userData);
-export const getNotes = (params?: {
+// Notes API
+export interface NotesResponse {
+  notes: Note[];
+  total?: number;
   page?: number;
   limit?: number;
-  tag?: string;
+}
+
+export const getNotes = async (params?: {
   search?: string;
-}) => apiClient.getNotes(params);
-export const createNote = (noteData: CreateNotePayload) =>
-  apiClient.createNote(noteData);
-export const updateNote = (id: string, noteData: UpdateNotePayload) =>
-  apiClient.updateNote(id, noteData);
-export const deleteNote = (id: string) => apiClient.deleteNote(id);
-export const getNote = (id: string) => apiClient.getNote(id);
+  tag?: string;
+  page?: number;
+  limit?: number;
+}): Promise<NotesResponse> => {
+  try {
+    const response = await api.get("/notes", { params });
+    return response.data;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Failed to fetch notes",
+        error.response?.status || 500
+      );
+    }
+    throw error;
+  }
+};
+
+export const getNote = async (id: string): Promise<Note> => {
+  try {
+    const response = await api.get(`/notes/${id}`);
+    return response.data.note;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Failed to fetch note",
+        error.response?.status || 500
+      );
+    }
+    throw error;
+  }
+};
+
+export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
+  try {
+    const response = await api.post("/notes", noteData);
+    return response.data.note;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Failed to create note",
+        error.response?.status || 500
+      );
+    }
+    throw error;
+  }
+};
+
+export const updateNote = async (
+  id: string,
+  noteData: UpdateNoteData
+): Promise<Note> => {
+  try {
+    const response = await api.put(`/notes/${id}`, noteData);
+    return response.data.note;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Failed to update note",
+        error.response?.status || 500
+      );
+    }
+    throw error;
+  }
+};
+
+export const deleteNote = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/notes/${id}`);
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      throw new ApiError(
+        error.response?.data?.error || "Failed to delete note",
+        error.response?.status || 500
+      );
+    }
+    throw error;
+  }
+};
+
+// Legacy exports for backward compatibility
+export const apiClient = {
+  // Auth methods
+  login: loginUser,
+  register,
+  logout,
+  checkSession,
+  updateUser,
+
+  // Notes methods
+  getNotes,
+  getNote,
+  createNote,
+  updateNote,
+  deleteNote,
+};
+
+export { AxiosError };
