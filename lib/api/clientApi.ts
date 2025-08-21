@@ -1,6 +1,6 @@
 // lib/api/clientApi.ts
 
-import { api } from "@/app/api/api";
+import { api } from "./api";
 import { User } from "@/types/user";
 import { LoginCredentials, RegisterCredentials } from "@/lib/store/authStore";
 import { Note, CreateNoteData, UpdateNoteData } from "@/types/note";

@@ -1,42 +1,98 @@
+/* components/Header/Header.module.css */
+
 .header {
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.headerContent {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background-color: #333;
-  color: white;
+  padding: 1rem 0;
 }
 
-.headerLink {
-  text-decoration: none;
-  color: white;
-  font-size: 1.5rem;
+.logo {
+  font-size: 1.25rem;
   font-weight: bold;
+  color: #1f2937;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
-.headerLink:hover {
-  color: #ddd;
+.logo:hover {
+  color: #374151;
 }
 
-.navigation {
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
+.nav {
   display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
-.navigationItem {
+.navLink {
+  color: #6b7280;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.navLink:hover {
+  color: #1f2937;
+}
+
+.userSection {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  margin-left: 1rem;
 }
 
-.navigationLink {
-  text-decoration: none;
+.userEmail {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.logoutButton {
+  padding: 0.5rem 1rem;
+  background-color: #ef4444;
   color: white;
-  font-size: 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 0.875rem;
 }
 
-.navigationLink:hover {
-  color: #ddd;
+.logoutButton:hover {
+  background-color: #dc2626;
+}
+
+.logoutButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .nav {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .userSection {
+    margin-left: 0;
+    justify-content: center;
+  }
 }

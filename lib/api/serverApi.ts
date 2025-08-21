@@ -1,8 +1,8 @@
 // lib/api/serverApi.ts
 
 import { cookies } from "next/headers";
-import { api } from "@/app/api/api";
-import { User } from "../../types/user";
+import { api } from "./api";
+import { User } from "@/types/user";
 import { Note, NotesQuery } from "../../types/note";
 import { AxiosResponse } from "axios";
 
