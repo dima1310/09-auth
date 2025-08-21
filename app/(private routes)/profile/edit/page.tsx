@@ -27,14 +27,8 @@ export default function EditProfilePage() {
       return;
     }
 
-    // Спробуємо отримати збережений username або використаємо частину email
-    const savedUsername =
-      typeof window !== "undefined"
-        ? sessionStorage.getItem("userDisplayName")
-        : null;
-
     setFormData({
-      username: savedUsername || user.email.split("@")[0],
+      username: user.username || user.email.split("@")[0],
       email: user.email,
     });
   }, [user, router]);
@@ -54,20 +48,17 @@ export default function EditProfilePage() {
 
     try {
       // Використовуємо функцію updateUser з clientApi
-      // Передаємо тільки ті поля, які існують в типі User
+      // Передаємо оновлені дані з форми
       const updatedUser = await updateUserAPI({
-        id: user.id,
-        email: user.email,
-        // Додаткові поля можуть бути додані тут якщо вони підтримуються
+        email: formData.email,
+        username: formData.username,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          formData.username
+        )}&size=120&background=3B82F6&color=fff&bold=true`,
       });
 
       // Оновлюємо користувача в store
       updateUser(updatedUser);
-
-      // Зберігаємо username локально оскільки він не є частиною типу User
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("userDisplayName", formData.username);
-      }
 
       setSuccess("Profile updated successfully!");
 
@@ -191,18 +182,6 @@ export default function EditProfilePage() {
                 />
                 <p className="mt-1 text-sm text-gray-500">
                   Email cannot be changed
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  User ID
-                </label>
-                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 font-mono text-sm">
-                  {user.id}
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  Your unique identifier
                 </p>
               </div>
 

@@ -1,25 +1,38 @@
 // app/api/notes/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { api } from "../api";
-import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
 // GET /api/notes - Get all notes for user
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const response = await api.get("/notes");
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("accessToken")?.value;
 
-    return NextResponse.json(response.data);
+    const { searchParams } = new URL(request.url);
+    const params = Object.fromEntries(searchParams.entries());
+
+    const headers = accessToken
+      ? { Authorization: `Bearer ${accessToken}` }
+      : {};
+
+    const response = await api.get("/notes", {
+      headers,
+      params,
+    });
+
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error) {
-    if (isAxiosError(error)) {
-      logErrorResponse(error);
-      return NextResponse.json(
-        error.response?.data || { message: "Failed to fetch notes" },
-        { status: error.response?.status || 500 }
-      );
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as {
+        response: { data: unknown; status: number };
+      };
+      return NextResponse.json(axiosError.response.data, {
+        status: axiosError.response.status,
+      });
     }
 
-    console.error("Get notes error:", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
@@ -30,21 +43,28 @@ export async function GET() {
 // POST /api/notes - Create new note
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("accessToken")?.value;
+
     const body = await request.json();
 
-    const response = await api.post("/notes", body);
+    const headers = accessToken
+      ? { Authorization: `Bearer ${accessToken}` }
+      : {};
 
-    return NextResponse.json(response.data, { status: 201 });
+    const response = await api.post("/notes", body, { headers });
+
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error) {
-    if (isAxiosError(error)) {
-      logErrorResponse(error);
-      return NextResponse.json(
-        error.response?.data || { message: "Failed to create note" },
-        { status: error.response?.status || 500 }
-      );
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as {
+        response: { data: unknown; status: number };
+      };
+      return NextResponse.json(axiosError.response.data, {
+        status: axiosError.response.status,
+      });
     }
 
-    console.error("Create note error:", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

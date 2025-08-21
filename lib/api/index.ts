@@ -2,11 +2,8 @@
 
 import { apiClient } from "./clientApi";
 import { Note, NoteTag, CreateNoteData, UpdateNoteData } from "@/types/note";
-import {
-  User,
-  LoginCredentials,
-  RegisterCredentials,
-} from "@/lib/store/authStore";
+import { User } from "@/types/user";
+import { LoginCredentials, RegisterCredentials } from "@/lib/store/authStore";
 
 // Auth API functions
 export const loginUser = (credentials: LoginCredentials) => {

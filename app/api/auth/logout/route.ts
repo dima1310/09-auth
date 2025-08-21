@@ -3,40 +3,56 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { api } from "../../api";
-import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
 export async function POST() {
   try {
-    const response = await api.post("/auth/logout");
     const cookieStore = await cookies();
+    const accessToken = cookieStore.get("accessToken")?.value;
 
-    // Парсим и устанавливаем куки из ответа
+    // Make logout request with token if available
+    const headers = accessToken
+      ? { Authorization: `Bearer ${accessToken}` }
+      : {};
+    const response = await api.post("/auth/logout", {}, { headers });
+
+    // Delete cookies
+    cookieStore.delete("accessToken");
+    cookieStore.delete("refreshToken");
+
+    // Set cookies from response if any
     const setCookieHeader = response.headers["set-cookie"];
     if (setCookieHeader) {
       setCookieHeader.forEach((cookie: string) => {
-        const [cookiePart] = cookie.split(";");
-        const [name, value] = cookiePart.split("=");
+        const [nameValue] = cookie.split(";");
+        const [name, value] = nameValue.split("=");
+
         if (name && value) {
           cookieStore.set(name.trim(), value.trim(), {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
+            path: "/",
           });
         }
       });
     }
 
-    return NextResponse.json(response.data);
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error) {
-    if (isAxiosError(error)) {
-      logErrorResponse(error);
-      return NextResponse.json(
-        error.response?.data || { message: "Logout failed" },
-        { status: error.response?.status || 500 }
-      );
+    // Delete cookies even if logout fails
+    const cookieStore = await cookies();
+    cookieStore.delete("accessToken");
+    cookieStore.delete("refreshToken");
+
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as {
+        response: { data: unknown; status: number };
+      };
+      return NextResponse.json(axiosError.response.data, {
+        status: axiosError.response.status,
+      });
     }
 
-    console.error("Logout API error:", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

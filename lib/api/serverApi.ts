@@ -1,12 +1,14 @@
 // lib/api/serverApi.ts
 
 import { cookies } from "next/headers";
+import { api } from "@/app/api/api";
 import { User } from "../../types/user";
 import { Note, NotesQuery } from "../../types/note";
+import { AxiosResponse } from "axios";
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL + "/api";
-
-export async function checkSession(): Promise<User | null> {
+export async function checkSession(): Promise<AxiosResponse<{
+  user: User;
+}> | null> {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("accessToken")?.value;
@@ -16,20 +18,19 @@ export async function checkSession(): Promise<User | null> {
       return null;
     }
 
-    const response = await fetch(`${baseURL}/auth/session`, {
-      method: "GET",
+    // Build cookie header manually
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+
+    const response = await api.get("/auth/session", {
       headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieStore.toString(),
+        Cookie: cookieHeader,
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    return result.user || null;
+    return response;
   } catch (error) {
     console.error("Check session error:", error);
     return null;
@@ -39,30 +40,21 @@ export async function checkSession(): Promise<User | null> {
 export async function getServerNotes(query?: NotesQuery): Promise<Note[]> {
   try {
     const cookieStore = await cookies();
-    const url = new URL(`${baseURL}/notes`);
 
-    if (query) {
-      Object.entries(query).forEach(([key, value]) => {
-        if (value !== undefined) {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
+    // Build cookie header manually
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
 
-    const response = await fetch(url.toString(), {
-      method: "GET",
+    const response = await api.get("/notes", {
       headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieStore.toString(),
+        Cookie: cookieHeader,
       },
+      params: query,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    return result.notes || [];
+    return response.data.notes || [];
   } catch (error) {
     console.error("Get server notes error:", error);
     return [];
@@ -73,20 +65,19 @@ export async function getServerNote(id: string): Promise<Note | null> {
   try {
     const cookieStore = await cookies();
 
-    const response = await fetch(`${baseURL}/notes/${id}`, {
-      method: "GET",
+    // Build cookie header manually
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+
+    const response = await api.get(`/notes/${id}`, {
       headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieStore.toString(),
+        Cookie: cookieHeader,
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    return result.note || null;
+    return response.data.note || null;
   } catch (error) {
     console.error("Get server note error:", error);
     return null;

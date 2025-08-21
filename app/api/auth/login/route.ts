@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { api } from "../../api";
-import { isAxiosError, logErrorResponse } from "@/lib/utils/errorHandling";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,33 +12,35 @@ export async function POST(request: NextRequest) {
 
     const cookieStore = await cookies();
 
-    // Парсим и устанавливаем куки из ответа
+    // Set cookies from response
     const setCookieHeader = response.headers["set-cookie"];
     if (setCookieHeader) {
       setCookieHeader.forEach((cookie: string) => {
-        const [cookiePart] = cookie.split(";");
-        const [name, value] = cookiePart.split("=");
+        const [nameValue] = cookie.split(";");
+        const [name, value] = nameValue.split("=");
+
         if (name && value) {
           cookieStore.set(name.trim(), value.trim(), {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
+            path: "/",
           });
         }
       });
     }
 
-    return NextResponse.json(response.data);
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error) {
-    if (isAxiosError(error)) {
-      logErrorResponse(error);
-      return NextResponse.json(
-        error.response?.data || { message: "Login failed" },
-        { status: error.response?.status || 500 }
-      );
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as {
+        response: { data: unknown; status: number };
+      };
+      return NextResponse.json(axiosError.response.data, {
+        status: axiosError.response.status,
+      });
     }
 
-    console.error("Login API error:", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

@@ -27,20 +27,25 @@ async function handleLogout() {
 
 export default async function ProfilePage() {
   // Отримуємо дані користувача через серверну функцію
-  const user = await checkSession();
+  const sessionResponse = await checkSession();
 
   // Якщо користувач не авторизований, перенаправляємо на сторінку входу
-  if (!user) {
+  if (!sessionResponse) {
     redirect("/sign-in");
   }
 
-  // Витягуємо username з email (частина до @)
-  const username = user.email.split("@")[0];
+  // Витягуємо користувача з відповіді
+  const user = sessionResponse.data.user;
 
-  // Генеруємо URL для аватара (можна використовувати сервіс типу UI Avatars)
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    username
-  )}&size=80&background=3B82F6&color=fff&bold=true`;
+  // Використовуємо username з об'єкта User або витягуємо з email як fallback
+  const username = user.username || user.email.split("@")[0];
+
+  // Генеруємо URL для аватара або використовуємо існуючий
+  const avatarUrl =
+    user.avatar ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      username
+    )}&size=80&background=3B82F6&color=fff&bold=true`;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -75,7 +80,6 @@ export default async function ProfilePage() {
                   {username}
                 </h2>
                 <p className="text-gray-600">{user.email}</p>
-                <p className="text-sm text-gray-500 mt-1">User ID: {user.id}</p>
               </div>
             </div>
 
@@ -97,12 +101,6 @@ export default async function ProfilePage() {
                       Email:
                     </span>
                     <p className="text-gray-900">{user.email}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 block">
-                      User ID:
-                    </span>
-                    <p className="text-gray-900 font-mono text-sm">{user.id}</p>
                   </div>
                 </div>
               </div>

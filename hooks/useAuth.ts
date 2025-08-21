@@ -8,11 +8,8 @@ import React, {
   ReactNode,
 } from "react";
 import { apiClient, ApiError } from "@/lib/api/clientApi";
-import {
-  User,
-  LoginCredentials,
-  RegisterCredentials,
-} from "@/lib/store/authStore";
+import { User } from "@/types/user";
+import { LoginCredentials, RegisterCredentials } from "@/lib/store/authStore";
 
 interface AuthContextType {
   user: User | null;

@@ -1,11 +1,7 @@
 // lib/store/authStore.ts
 
 import { create } from "zustand";
-
-export interface User {
-  id: string;
-  email: string;
-}
+import { User } from "@/types/user";
 
 export interface LoginCredentials {
   email: string;
@@ -35,7 +31,7 @@ interface AuthActions {
 type AuthStore = AuthState & AuthActions;
 
 // Создаем хук с использованием create из zustand
-export const useAuth = create<AuthStore>((set) => ({
+export const useAuth = create<AuthStore>()((set) => ({
   // State
   user: null,
   isAuthenticated: false,

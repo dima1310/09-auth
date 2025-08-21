@@ -1,22 +1,10 @@
 // lib/api/clientApi.ts
 
-import axios from "axios";
-import {
-  User,
-  LoginCredentials,
-  RegisterCredentials,
-} from "@/lib/store/authStore";
+import { api } from "@/app/api/api";
+import { User } from "@/types/user";
+import { LoginCredentials, RegisterCredentials } from "@/lib/store/authStore";
 import { Note, CreateNoteData, UpdateNoteData } from "@/types/note";
 import { AxiosError } from "axios";
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: "/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true,
-});
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) {
@@ -91,7 +79,7 @@ export const checkSession = async (): Promise<User> => {
 
 export const updateUser = async (userData: Partial<User>): Promise<User> => {
   try {
-    const response = await api.put("/users/me", userData);
+    const response = await api.patch("/users/me", userData);
     return response.data.user;
   } catch (error) {
     if (error instanceof AxiosError) {
@@ -167,7 +155,7 @@ export const updateNote = async (
   noteData: UpdateNoteData
 ): Promise<Note> => {
   try {
-    const response = await api.put(`/notes/${id}`, noteData);
+    const response = await api.patch(`/notes/${id}`, noteData);
     return response.data.note;
   } catch (error) {
     if (error instanceof AxiosError) {
@@ -180,9 +168,10 @@ export const updateNote = async (
   }
 };
 
-export const deleteNote = async (id: string): Promise<void> => {
+export const deleteNote = async (id: string): Promise<Note> => {
   try {
-    await api.delete(`/notes/${id}`);
+    const response = await api.delete(`/notes/${id}`);
+    return response.data.note;
   } catch (error) {
     if (error instanceof AxiosError) {
       throw new ApiError(

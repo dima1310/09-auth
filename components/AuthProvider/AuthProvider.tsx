@@ -4,6 +4,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/lib/store/authStore";
+import { checkUserSession } from "@/lib/api";
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -17,15 +18,9 @@ function AuthProvider({ children }: AuthProviderProps) {
       try {
         setLoading(true);
 
-        // Проверяем есть ли токен в cookies
-        const response = await fetch("/api/auth/session");
-
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-        } else {
-          setUser(null);
-        }
+        // Используем функцию checkUserSession из clientApi
+        const user = await checkUserSession();
+        setUser(user);
       } catch (error) {
         console.error("Auth check failed:", error);
         setUser(null);
