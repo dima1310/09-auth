@@ -1,65 +1,59 @@
-// app/api/users/me/route.ts
-
-import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { api } from "../../api";
-
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { api } from "../../api";
+import { cookies } from "next/headers";
+import { logErrorResponse } from "../../_utils/utils";
+import { isAxiosError } from "axios";
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
 
-    const headers = accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : {};
-
-    const response = await api.get("/users/me", { headers });
-
-    return NextResponse.json(response.data, { status: response.status });
+    const res = await api.get("/users/me", {
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
+    });
+    return NextResponse.json(res.data, { status: res.status });
   } catch (error) {
-    if (error && typeof error === "object" && "response" in error) {
-      const axiosError = error as {
-        response: { data: unknown; status: number };
-      };
-      return NextResponse.json(axiosError.response.data, {
-        status: axiosError.response.status,
-      });
+    if (isAxiosError(error)) {
+      logErrorResponse(error.response?.data);
+      return NextResponse.json(
+        { error: error.message, response: error.response?.data },
+        { status: error.status }
+      );
     }
-
+    logErrorResponse({ message: (error as Error).message });
     return NextResponse.json(
-      { error: "Failed to get user data" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: Request) {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
     const body = await request.json();
 
-    const headers = accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : {};
-
-    const response = await api.patch("/users/me", body, { headers });
-
-    return NextResponse.json(response.data, { status: response.status });
+    const res = await api.patch("/users/me", body, {
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
+    });
+    return NextResponse.json(res.data, { status: res.status });
   } catch (error) {
-    if (error && typeof error === "object" && "response" in error) {
-      const axiosError = error as {
-        response: { data: unknown; status: number };
-      };
-      return NextResponse.json(axiosError.response.data, {
-        status: axiosError.response.status,
-      });
+    if (isAxiosError(error)) {
+      logErrorResponse(error.response?.data);
+      return NextResponse.json(
+        { error: error.message, response: error.response?.data },
+        { status: error.status }
+      );
     }
-
+    logErrorResponse({ message: (error as Error).message });
     return NextResponse.json(
-      { error: "Failed to update user data" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

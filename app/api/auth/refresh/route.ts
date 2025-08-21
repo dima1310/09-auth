@@ -1,56 +1,53 @@
-// app/api/auth/refresh/route.ts
-
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { api } from "../../api";
+import { parse } from "cookie";
+import { isAxiosError } from "axios";
+import { logErrorResponse } from "../../_utils/utils";
 
-export async function POST() {
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const refreshToken = cookieStore.get("refreshToken")?.value;
+    const next = request.nextUrl.searchParams.get("next") || "/";
 
-    if (!refreshToken) {
-      return NextResponse.json(
-        { error: "Refresh token not found" },
-        { status: 401 }
-      );
-    }
+    if (refreshToken) {
+      const apiRes = await api.get("auth/session", {
+        headers: {
+          Cookie: cookieStore.toString(),
+        },
+      });
+      const setCookie = apiRes.headers["set-cookie"];
+      if (setCookie) {
+        const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
+        let accessToken = "";
+        let refreshToken = "";
 
-    const response = await api.post("/auth/refresh", {
-      refreshToken: refreshToken,
-    });
-
-    // Set cookies from response
-    const setCookieHeader = response.headers["set-cookie"];
-    if (setCookieHeader) {
-      setCookieHeader.forEach((cookie: string) => {
-        const [nameValue] = cookie.split(";");
-        const [name, value] = nameValue.split("=");
-
-        if (name && value) {
-          cookieStore.set(name.trim(), value.trim(), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-          });
+        for (const cookieStr of cookieArray) {
+          const parsed = parse(cookieStr);
+          if (parsed.accessToken) accessToken = parsed.accessToken;
+          if (parsed.refreshToken) refreshToken = parsed.refreshToken;
         }
-      });
-    }
 
-    return NextResponse.json(response.data, { status: response.status });
+        if (accessToken) cookieStore.set("accessToken", accessToken);
+        if (refreshToken) cookieStore.set("refreshToken", refreshToken);
+
+        return NextResponse.redirect(new URL(next, request.url), {
+          headers: {
+            "set-cookie": cookieStore.toString(),
+          },
+        });
+      }
+    }
+    return NextResponse.redirect(new URL("/sign-in", request.url));
   } catch (error) {
-    if (error && typeof error === "object" && "response" in error) {
-      const axiosError = error as {
-        response: { data: unknown; status: number };
-      };
-      return NextResponse.json(axiosError.response.data, {
-        status: axiosError.response.status,
-      });
+    if (isAxiosError(error)) {
+      logErrorResponse(error.response?.data);
+      return NextResponse.redirect(new URL("/sign-in", request.url));
     }
-
+    logErrorResponse({ message: (error as Error).message });
     return NextResponse.json(
-      { error: "Failed to refresh token" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

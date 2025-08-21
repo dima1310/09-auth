@@ -1,63 +1,55 @@
-// app/api/auth/session/route.ts
-
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { api } from "../../api";
+import { parse } from "cookie";
+import { isAxiosError } from "axios";
+import { logErrorResponse } from "../../_utils/utils";
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("accessToken")?.value;
+    const refreshToken = cookieStore.get("refreshToken")?.value;
 
-    if (!accessToken) {
-      return NextResponse.json({ error: "No access token" }, { status: 401 });
+    if (accessToken) {
+      return NextResponse.json({ success: true });
     }
 
-    // Make API call to verify session with the token
-    const response = await api.get("/auth/session", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    // Set cookies from response if any
-    const setCookieHeader = response.headers["set-cookie"];
-    if (setCookieHeader) {
-      const nextResponse = NextResponse.json(response.data, {
-        status: response.status,
+    if (refreshToken) {
+      const apiRes = await api.get("auth/session", {
+        headers: {
+          Cookie: cookieStore.toString(),
+        },
       });
 
-      setCookieHeader.forEach((cookie: string) => {
-        const [nameValue] = cookie.split(";");
-        const [name, value] = nameValue.split("=");
+      const setCookie = apiRes.headers["set-cookie"];
 
-        if (name && value) {
-          nextResponse.cookies.set(name.trim(), value.trim(), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-          });
+      if (setCookie) {
+        const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
+        for (const cookieStr of cookieArray) {
+          const parsed = parse(cookieStr);
+
+          const options = {
+            expires: parsed.Expires ? new Date(parsed.Expires) : undefined,
+            path: parsed.Path,
+            maxAge: Number(parsed["Max-Age"]),
+          };
+
+          if (parsed.accessToken)
+            cookieStore.set("accessToken", parsed.accessToken, options);
+          if (parsed.refreshToken)
+            cookieStore.set("refreshToken", parsed.refreshToken, options);
         }
-      });
-
-      return nextResponse;
+        return NextResponse.json({ success: true }, { status: 200 });
+      }
     }
-
-    return NextResponse.json(response.data, { status: response.status });
+    return NextResponse.json({ success: false }, { status: 200 });
   } catch (error) {
-    if (error && typeof error === "object" && "response" in error) {
-      const axiosError = error as {
-        response: { data: unknown; status: number };
-      };
-      return NextResponse.json(axiosError.response.data, {
-        status: axiosError.response.status,
-      });
+    if (isAxiosError(error)) {
+      logErrorResponse(error.response?.data);
+      return NextResponse.json({ success: false }, { status: 200 });
     }
-
-    return NextResponse.json(
-      { error: "Failed to check session" },
-      { status: 500 }
-    );
+    logErrorResponse({ message: (error as Error).message });
+    return NextResponse.json({ success: false }, { status: 200 });
   }
 }

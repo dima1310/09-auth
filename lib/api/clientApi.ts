@@ -22,10 +22,9 @@ export const loginUser = async (
     return response.data.user;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Login failed",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Login failed";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -39,10 +38,9 @@ export const register = async (
     return response.data.user;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Registration failed",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Registration failed";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -53,10 +51,9 @@ export const logout = async (): Promise<void> => {
     await api.post("/auth/logout");
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Logout failed",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Logout failed";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -68,10 +65,13 @@ export const checkSession = async (): Promise<User> => {
     return response.data.user;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Session check failed",
-        error.response?.status || 500
-      );
+      // Если статус 401 (Unauthorized), это значит что сессия неактивна
+      if (error.response?.status === 401) {
+        throw new Error("No active session");
+      }
+      const message = error.response?.data?.error || "Session check failed";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -83,10 +83,9 @@ export const updateUser = async (userData: Partial<User>): Promise<User> => {
     return response.data.user;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Failed to update user",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Failed to update user";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -111,10 +110,9 @@ export const getNotes = async (params?: {
     return response.data;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Failed to fetch notes",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Failed to fetch notes";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -126,10 +124,9 @@ export const getNote = async (id: string): Promise<Note> => {
     return response.data.note;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Failed to fetch note",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Failed to fetch note";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -141,10 +138,9 @@ export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
     return response.data.note;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Failed to create note",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Failed to create note";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -159,10 +155,9 @@ export const updateNote = async (
     return response.data.note;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Failed to update note",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Failed to update note";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }
@@ -174,10 +169,9 @@ export const deleteNote = async (id: string): Promise<Note> => {
     return response.data.note;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new ApiError(
-        error.response?.data?.error || "Failed to delete note",
-        error.response?.status || 500
-      );
+      const message = error.response?.data?.error || "Failed to delete note";
+      const status = error.response?.status || 500;
+      throw new ApiError(message, status);
     }
     throw error;
   }

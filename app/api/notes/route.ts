@@ -1,72 +1,71 @@
-// app/api/notes/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { api } from "../api";
+import { cookies } from "next/headers";
+import { isAxiosError } from "axios";
+import { logErrorResponse } from "../_utils/utils";
 
-// GET /api/notes - Get all notes for user
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
+    const search = request.nextUrl.searchParams.get("search") ?? "";
+    const page = Number(request.nextUrl.searchParams.get("page") ?? 1);
+    const rawTag = request.nextUrl.searchParams.get("tag") ?? "";
+    const tag = rawTag === "All" ? "" : rawTag;
 
-    const { searchParams } = new URL(request.url);
-    const params = Object.fromEntries(searchParams.entries());
-
-    const headers = accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : {};
-
-    const response = await api.get("/notes", {
-      headers,
-      params,
+    const res = await api("/notes", {
+      params: {
+        ...(search !== "" && { search }),
+        page,
+        perPage: 12,
+        ...(tag && { tag }),
+      },
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
     });
 
-    return NextResponse.json(response.data, { status: response.status });
+    return NextResponse.json(res.data, { status: res.status });
   } catch (error) {
-    if (error && typeof error === "object" && "response" in error) {
-      const axiosError = error as {
-        response: { data: unknown; status: number };
-      };
-      return NextResponse.json(axiosError.response.data, {
-        status: axiosError.response.status,
-      });
+    if (isAxiosError(error)) {
+      logErrorResponse(error.response?.data);
+      return NextResponse.json(
+        { error: error.message, response: error.response?.data },
+        { status: error.status }
+      );
     }
-
+    logErrorResponse({ message: (error as Error).message });
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
 }
 
-// POST /api/notes - Create new note
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("accessToken")?.value;
 
     const body = await request.json();
 
-    const headers = accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : {};
+    const res = await api.post("/notes", body, {
+      headers: {
+        Cookie: cookieStore.toString(),
+        "Content-Type": "application/json",
+      },
+    });
 
-    const response = await api.post("/notes", body, { headers });
-
-    return NextResponse.json(response.data, { status: response.status });
+    return NextResponse.json(res.data, { status: res.status });
   } catch (error) {
-    if (error && typeof error === "object" && "response" in error) {
-      const axiosError = error as {
-        response: { data: unknown; status: number };
-      };
-      return NextResponse.json(axiosError.response.data, {
-        status: axiosError.response.status,
-      });
+    if (isAxiosError(error)) {
+      logErrorResponse(error.response?.data);
+      return NextResponse.json(
+        { error: error.message, response: error.response?.data },
+        { status: error.status }
+      );
     }
-
+    logErrorResponse({ message: (error as Error).message });
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
