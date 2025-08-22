@@ -1,44 +1,25 @@
 // components/AuthNavigation/AuthNavigation.tsx
 
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/store/authStore";
-
-// Hook to check if we're on the client side
-function useIsClient() {
-  const [isClient, setIsClient] = useState(false);
-
-  useState(() => {
-    setIsClient(true);
-  });
-
-  return isClient;
-}
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/store/authStore';
 
 export default function AuthNavigation() {
-  const isClient = useIsClient();
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  console.log(isAuthenticated);
+
+  const clearIsAuthenticated = useAuth((state) => state.logout);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      logout();
-      router.push("/sign-in");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    await logout();
+    clearIsAuthenticated();
+    router.push('/sign-in');
   };
 
-  // Don't render anything until we're on the client
-  if (!isClient) {
-    return null;
-  }
-
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated) {
     return (
       <nav className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -99,7 +80,7 @@ export default function AuthNavigation() {
             </Link>
 
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-600">{user.email}</span>
+              <span className="text-sm text-gray-600">{user?.email || ''}</span>
               <button
                 onClick={handleLogout}
                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"

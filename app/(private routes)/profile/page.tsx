@@ -1,52 +1,24 @@
 // app/(private routes)/profile/page.tsx
 
-import { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { checkSession } from "@/lib/api/serverApi";
-import { cookies } from "next/headers";
+import { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
+
+import { getCurrentUser } from '@/lib/api/serverApi';
 
 export const metadata: Metadata = {
-  title: "My Profile",
-  description: "View and manage your user profile information",
+  title: 'My Profile',
+  description: 'View and manage your user profile information',
 };
-
-// Server Action для logout винесена окремо
-async function handleLogout() {
-  "use server";
-
-  // Видаляємо auth cookies
-  const cookieStore = await cookies();
-  cookieStore.delete("accessToken");
-  cookieStore.delete("refreshToken");
-
-  // Перенаправляємо на сторінку входу
-  redirect("/sign-in");
-}
 
 export default async function ProfilePage() {
   // Отримуємо дані користувача через серверну функцію
-  const sessionResponse = await checkSession();
-
-  // Якщо користувач не авторизований, перенаправляємо на сторінку входу
-  if (!sessionResponse) {
-    redirect("/sign-in");
-  }
-
-  // Витягуємо користувача з відповіді
-  const user = sessionResponse.data?.user;
-  if (!user) {
-    redirect("/sign-in");
-  }
-  // Використовуємо username з об'єкта User або витягуємо з email як fallback
-  const username = user.username || user.email.split("@")[0];
-
+  const user = await getCurrentUser();
   // Генеруємо URL для аватара або використовуємо існуючий
   const avatarUrl =
     user.avatar ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      username
+      user.username
     )}&size=80&background=3B82F6&color=fff&bold=true`;
 
   return (
@@ -68,7 +40,7 @@ export default async function ProfilePage() {
               <div className="relative w-20 h-20 rounded-full overflow-hidden flex-shrink-0">
                 <Image
                   src={avatarUrl}
-                  alt={`${username} avatar`}
+                  alt={`${user.username} avatar`}
                   width={80}
                   height={80}
                   className="object-cover"
@@ -79,7 +51,7 @@ export default async function ProfilePage() {
               {/* Profile Info */}
               <div className="flex-1">
                 <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                  {username}
+                  {user.username}
                 </h2>
                 <p className="text-gray-600">{user.email}</p>
               </div>
@@ -96,7 +68,7 @@ export default async function ProfilePage() {
                     <span className="text-sm font-medium text-gray-500 block">
                       Username:
                     </span>
-                    <p className="text-gray-900">{username}</p>
+                    <p className="text-gray-900">{user.username}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500 block">
@@ -151,14 +123,6 @@ export default async function ProfilePage() {
               </Link>
 
               {/* Logout form with Server Action */}
-              <form action={handleLogout} className="inline-block">
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
-                >
-                  Logout
-                </button>
-              </form>
             </div>
           </div>
         </div>

@@ -1,25 +1,12 @@
 // components/Header/Header.tsx
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/store/authStore";
-import styles from "./Header.module.css";
+import Link from 'next/link';
+
+import styles from './Header.module.css';
+import AuthNavigation from '../AuthNavigation/AuthNavigation';
 
 function Header() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      logout();
-      router.push("/sign-in");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
   return (
     <header className={styles.header}>
       <div className={styles.container}>
@@ -29,18 +16,8 @@ function Header() {
           </Link>
 
           <nav className={styles.nav}>
-            <Link href="/notes" className={styles.navLink}>
-              My Notes
-            </Link>
-            <Link href="/notes/create" className={styles.navLink}>
-              Create Note
-            </Link>
-
             <div className={styles.userSection}>
-              {user && <span className={styles.userEmail}>{user.email}</span>}
-              <button onClick={handleLogout} className={styles.logoutButton}>
-                Logout
-              </button>
+              <AuthNavigation />
             </div>
           </nav>
         </div>

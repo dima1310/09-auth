@@ -1,18 +1,19 @@
 // app/layout.tsx
 
-import { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import AuthProvider from "@/components/AuthProvider/AuthProvider";
+import { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import AuthProvider from '@/components/AuthProvider/AuthProvider';
 
-import Header from "@/components/Header/Header";
-import Footer from "@/components/Footer/Footer";
+import Header from '@/components/Header/Header';
+import Footer from '@/components/Footer/Footer';
+import { TanStackProvider } from '@/components/TanStackProvider/TanStackProvider';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Notes App",
-  description: "A simple notes application with authentication",
+  title: 'Notes App',
+  description: 'A simple notes application with authentication',
 };
 
 interface RootLayoutProps {
@@ -24,17 +25,19 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
   return (
     <html lang="en">
       <body className={inter.className} suppressHydrationWarning={true}>
-        <AuthProvider>
-          <div className="container">
-            <Header />
-            <main>{children}</main>
-            <Footer />
-          </div>
+        <TanStackProvider>
+          <AuthProvider>
+            <div className="container">
+              <Header />
+              <main>{children}</main>
+              <Footer />
+            </div>
 
-          {modal}
+            {modal}
 
-          <div id="modal-root" />
-        </AuthProvider>
+            <div id="modal-root" />
+          </AuthProvider>
+        </TanStackProvider>
       </body>
     </html>
   );
