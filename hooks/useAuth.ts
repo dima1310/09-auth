@@ -38,7 +38,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const checkSession = async () => {
     try {
       setLoading(true);
-      const sessionUser = await apiClient.checkSession();
+      const sessionUser = await apiClient.getCurrentUser();
       setUser(sessionUser);
     } catch (error) {
       console.error("Session check failed:", error);

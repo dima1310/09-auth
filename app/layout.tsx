@@ -5,6 +5,9 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 
+import Header from "@/components/Header/Header";
+import Footer from "@/components/Footer/Footer";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -22,8 +25,15 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
     <html lang="en">
       <body className={inter.className} suppressHydrationWarning={true}>
         <AuthProvider>
-          <main>{children}</main>
+          <div className="container">
+            <Header />
+            <main>{children}</main>
+            <Footer />
+          </div>
+
           {modal}
+
+          <div id="modal-root" />
         </AuthProvider>
       </body>
     </html>

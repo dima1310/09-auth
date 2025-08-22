@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { parse } from "cookie";
 import { checkSession } from "./lib/api/serverApi";
 
 const privateRoutes = ["/profile"];
@@ -21,44 +20,33 @@ export async function middleware(request: NextRequest) {
 
   if (!accessToken) {
     if (refreshToken) {
-      // Якщо accessToken відсутній, але є refreshToken — потрібно перевірити сесію навіть для публічного маршруту,
-      // адже сесія може залишатися активною, і тоді потрібно заборонити доступ до публічного маршруту.
-      const data = await checkSession();
-      const setCookie = data?.headers["set-cookie"];
+      // Якщо accessToken відсутній, але є refreshToken — потрібно перевірити сесію
+      const sessionData = await checkSession(accessToken, refreshToken);
 
-      if (setCookie) {
-        const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
-        for (const cookieStr of cookieArray) {
-          const parsed = parse(cookieStr);
-          const options = {
-            expires: parsed.Expires ? new Date(parsed.Expires) : undefined,
-            path: parsed.Path,
-            maxAge: Number(parsed["Max-Age"]),
-          };
-          if (parsed.accessToken)
-            cookieStore.set("accessToken", parsed.accessToken, options);
-          if (parsed.refreshToken)
-            cookieStore.set("refreshToken", parsed.refreshToken, options);
-        }
+      if (sessionData.cookies && sessionData.cookies.length > 0) {
+        // Встановлюємо нові cookies з sessionData
+        const response = isPublicRoute
+          ? NextResponse.redirect(new URL("/", request.url))
+          : NextResponse.next();
+
+        sessionData.cookies.forEach((cookie) => {
+          if (cookie.value !== undefined) {
+            response.cookies.set(cookie.name, cookie.value, cookie.options);
+          }
+        });
+
         // Якщо сесія все ще активна:
-        // для публічного маршруту — виконуємо редірект на головну.
+        // для публічного маршруту — виконуємо редірект на головну
         if (isPublicRoute) {
-          return NextResponse.redirect(new URL("/", request.url), {
-            headers: {
-              Cookie: cookieStore.toString(),
-            },
-          });
+          return response;
         }
         // для приватного маршруту — дозволяємо доступ
         if (isPrivateRoute) {
-          return NextResponse.next({
-            headers: {
-              Cookie: cookieStore.toString(),
-            },
-          });
+          return response;
         }
       }
     }
+
     // Якщо refreshToken або сесії немає:
     // публічний маршрут — дозволяємо доступ
     if (isPublicRoute) {

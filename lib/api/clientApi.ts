@@ -1,197 +1,351 @@
-// lib/api/clientApi.ts
+"use client";
 
-import { api } from "./api";
-import { User } from "@/types/user";
-import { LoginCredentials, RegisterCredentials } from "@/lib/store/authStore";
-import { Note, CreateNoteData, UpdateNoteData } from "@/types/note";
-import { AxiosError } from "axios";
+import { api } from "@/lib/api/api";
+import axios, { AxiosError } from "axios";
+import type { User } from "@/types/user";
+import { useAuthStore } from "@/lib/store/authStore";
 
+// Define error response type
+interface ErrorResponse {
+  message?: string;
+}
+
+// Custom API Error class
 export class ApiError extends Error {
-  constructor(message: string, public status: number, public code?: string) {
+  public status?: number;
+  public code?: string;
+
+  constructor(message: string, status?: number, code?: string) {
     super(message);
     this.name = "ApiError";
+    this.status = status;
+    this.code = code;
   }
 }
 
-// Auth API
-export const loginUser = async (
-  credentials: LoginCredentials
-): Promise<User> => {
+// Re-export api as rawApi for low-level access
+export { api as rawApi };
+
+// Create apiClient object with all methods for compatibility
+export const apiClient = {
+  // Raw axios instance for direct calls
+  ...api,
+
+  // Auth methods
+  loginUser,
+  registerUser,
+  updateUser,
+  getCurrentUser,
+  checkSession,
+  logoutUser,
+
+  // Auth method aliases for compatibility
+  login: loginUser,
+  register: registerUser,
+  logout: logoutUser,
+
+  // Notes methods
+  createNote,
+  getNote,
+  getNotes,
+  updateNote,
+  deleteNote,
+
+  // HTTP methods (from axios instance)
+  get: api.get.bind(api),
+  post: api.post.bind(api),
+  put: api.put.bind(api),
+  delete: api.delete.bind(api),
+  patch: api.patch.bind(api),
+};
+
+// Отримання поточного користувача
+export async function getCurrentUser(): Promise<User | null> {
   try {
-    const response = await api.post("/auth/login", credentials);
-    return response.data.user;
+    const { data } = await api.get<User>("/auth/session");
+    if (data) useAuthStore.getState().setUser(data);
+    return data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Login failed";
-      const status = error.response?.status || 500;
+    console.error("getCurrentUser error:", error);
+    useAuthStore.getState().logout();
+    return null;
+  }
+}
+
+// Перевірка сесії
+interface SessionResponse {
+  success: boolean;
+  user?: User;
+}
+
+export async function checkSession(): Promise<boolean> {
+  try {
+    const { data } = await api.get<SessionResponse>("/auth/session");
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
+// Вхід користувача (with overloads for different argument types)
+export async function loginUser(email: string, password: string): Promise<User>;
+export async function loginUser(formData: {
+  email: string;
+  password: string;
+}): Promise<User>;
+export async function loginUser(
+  emailOrFormData: string | { email: string; password: string },
+  password?: string
+): Promise<User> {
+  try {
+    let email: string;
+    let pass: string;
+
+    if (typeof emailOrFormData === "string") {
+      email = emailOrFormData;
+      pass = password!;
+    } else {
+      email = emailOrFormData.email;
+      pass = emailOrFormData.password;
+    }
+
+    const { data } = await api.post<User>("/auth/login", {
+      email,
+      password: pass,
+    });
+    useAuthStore.getState().setUser(data);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      const message = axiosError.response?.data?.message || "Login failed";
+      const status = axiosError.response?.status;
+
+      // Добавляем более детальную информацию об ошибке
+      console.error("Login error details:", {
+        status: status,
+        statusText: axiosError.response?.statusText,
+        message: message,
+        url: axiosError.config?.url,
+        method: axiosError.config?.method,
+        responseData: axiosError.response?.data,
+        requestData: axiosError.config?.data
+          ? JSON.parse(axiosError.config.data)
+          : null,
+      });
+
       throw new ApiError(message, status);
+    }
+
+    // Для не-axios ошибок
+    console.error("Non-axios login error:", error);
+    throw error;
+  }
+}
+
+// Реєстрація користувача (with overloads for different argument types)
+export async function registerUser(
+  email: string,
+  password: string
+): Promise<User>;
+export async function registerUser(formData: {
+  email: string;
+  password: string;
+}): Promise<User>;
+export async function registerUser(
+  emailOrFormData: string | { email: string; password: string },
+  password?: string
+): Promise<User> {
+  try {
+    let email: string;
+    let pass: string;
+
+    if (typeof emailOrFormData === "string") {
+      email = emailOrFormData;
+      pass = password!;
+    } else {
+      email = emailOrFormData.email;
+      pass = emailOrFormData.password;
+    }
+
+    const { data } = await api.post<User>("/auth/register", {
+      email,
+      password: pass,
+    });
+    useAuthStore.getState().setUser(data);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(
+        axiosError.response?.data?.message || "Registration failed"
+      );
     }
     throw error;
   }
-};
+}
 
-export const register = async (
-  credentials: RegisterCredentials
-): Promise<User> => {
-  try {
-    const response = await api.post("/auth/register", credentials);
-    return response.data.user;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Registration failed";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
-    }
-    throw error;
-  }
-};
-
-export const logout = async (): Promise<void> => {
+// Вихід користувача
+export async function logoutUser(): Promise<void> {
   try {
     await api.post("/auth/logout");
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Logout failed";
-      const status = error.response?.status || 500;
+    useAuthStore.getState().logout();
+  } catch (error: unknown) {
+    // Навіть якщо запит на сервер не вдався, очищуємо локальні дані
+    useAuthStore.getState().logout();
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      const message = axiosError.response?.data?.message || "Logout failed";
+      const status = axiosError.response?.status;
       throw new ApiError(message, status);
     }
     throw error;
   }
-};
-
-export const checkSession = async (): Promise<User> => {
-  try {
-    const response = await api.get("/auth/session");
-    return response.data.user;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      // Если статус 401 (Unauthorized), это значит что сессия неактивна
-      if (error.response?.status === 401) {
-        throw new Error("No active session");
-      }
-      const message = error.response?.data?.error || "Session check failed";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
-    }
-    throw error;
-  }
-};
-
-export const updateUser = async (userData: Partial<User>): Promise<User> => {
-  try {
-    const response = await api.patch("/users/me", userData);
-    return response.data.user;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Failed to update user";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
-    }
-    throw error;
-  }
-};
-
-// Notes API
-export interface NotesResponse {
-  notes: Note[];
-  total?: number;
-  page?: number;
-  limit?: number;
 }
 
-export const getNotes = async (params?: {
+// Alias for registerUser (for compatibility)
+export { registerUser as register };
+
+// Оновлення користувача
+export async function updateUser(userData: Partial<User>): Promise<User> {
+  try {
+    const { data } = await api.put<User>("/auth/profile", userData);
+    useAuthStore.getState().setUser(data);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(axiosError.response?.data?.message || "Update failed");
+    }
+    throw error;
+  }
+}
+
+// Alias for updateUser (for compatibility)
+export { updateUser as updateUserAPI };
+
+// ===== NOTES API =====
+
+// Note type import
+import type { Note } from "@/types/note";
+
+// Параметры для получения заметок
+interface GetNotesParams {
   search?: string;
   tag?: string;
   page?: number;
   limit?: number;
-}): Promise<NotesResponse> => {
+}
+
+// Ответ с пагинацией
+interface GetNotesResponse {
+  notes: Note[];
+  total: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+}
+
+// Отримання всіх нотаток
+export async function getNotes(
+  params?: GetNotesParams
+): Promise<GetNotesResponse> {
   try {
-    const response = await api.get("/notes", { params });
-    return response.data;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Failed to fetch notes";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
+    const searchParams = new URLSearchParams();
+
+    if (params?.search) {
+      searchParams.append("search", params.search);
+    }
+    if (params?.tag) {
+      searchParams.append("tag", params.tag);
+    }
+    if (params?.page) {
+      searchParams.append("page", params.page.toString());
+    }
+    if (params?.limit) {
+      searchParams.append("limit", params.limit.toString());
+    }
+
+    const queryString = searchParams.toString();
+    const url = queryString ? `/notes?${queryString}` : "/notes";
+
+    const { data } = await api.get<GetNotesResponse>(url);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(
+        axiosError.response?.data?.message || "Failed to fetch notes"
+      );
     }
     throw error;
   }
-};
+}
 
-export const getNote = async (id: string): Promise<Note> => {
+// Отримання конкретної нотатки
+export async function getNote(id: string): Promise<Note> {
   try {
-    const response = await api.get(`/notes/${id}`);
-    return response.data.note;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Failed to fetch note";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
+    const { data } = await api.get<Note>(`/notes/${id}`);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(
+        axiosError.response?.data?.message || "Failed to fetch note"
+      );
     }
     throw error;
   }
-};
+}
 
-export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
+// Створення нотатки
+export async function createNote(
+  noteData: Omit<Note, "id" | "createdAt" | "updatedAt" | "userId">
+): Promise<Note> {
   try {
-    const response = await api.post("/notes", noteData);
-    return response.data.note;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Failed to create note";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
+    const { data } = await api.post<Note>("/notes", noteData);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(
+        axiosError.response?.data?.message || "Failed to create note"
+      );
     }
     throw error;
   }
-};
+}
 
-export const updateNote = async (
+// Оновлення нотатки
+export async function updateNote(
   id: string,
-  noteData: UpdateNoteData
-): Promise<Note> => {
+  noteData: Partial<Omit<Note, "id" | "createdAt" | "updatedAt" | "userId">>
+): Promise<Note> {
   try {
-    const response = await api.patch(`/notes/${id}`, noteData);
-    return response.data.note;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Failed to update note";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
+    const { data } = await api.put<Note>(`/notes/${id}`, noteData);
+    return data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(
+        axiosError.response?.data?.message || "Failed to update note"
+      );
     }
     throw error;
   }
-};
+}
 
-export const deleteNote = async (id: string): Promise<Note> => {
+// Видалення нотатки
+export async function deleteNote(id: string): Promise<void> {
   try {
-    const response = await api.delete(`/notes/${id}`);
-    return response.data.note;
-  } catch (error) {
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.error || "Failed to delete note";
-      const status = error.response?.status || 500;
-      throw new ApiError(message, status);
+    await api.delete(`/notes/${id}`);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      throw new Error(
+        axiosError.response?.data?.message || "Failed to delete note"
+      );
     }
     throw error;
   }
-};
-
-// Legacy exports for backward compatibility
-export const apiClient = {
-  // Auth methods
-  login: loginUser,
-  register,
-  logout,
-  checkSession,
-  updateUser,
-
-  // Notes methods
-  getNotes,
-  getNote,
-  createNote,
-  updateNote,
-  deleteNote,
-};
-
-export { AxiosError };
+}

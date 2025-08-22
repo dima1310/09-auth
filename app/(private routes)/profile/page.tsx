@@ -35,8 +35,10 @@ export default async function ProfilePage() {
   }
 
   // Витягуємо користувача з відповіді
-  const user = sessionResponse.data.user;
-
+  const user = sessionResponse.data?.user;
+  if (!user) {
+    redirect("/sign-in");
+  }
   // Використовуємо username з об'єкта User або витягуємо з email як fallback
   const username = user.username || user.email.split("@")[0];
 
