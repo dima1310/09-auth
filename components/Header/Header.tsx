@@ -1,30 +1,23 @@
-// components/Header/Header.tsx
-'use client';
+import css from "./Header.module.css";
+import Link from "next/link";
+import TagsMenu from "../TagsMenu/TagsMenu";
 
-import Link from 'next/link';
-
-import styles from './Header.module.css';
-import AuthNavigation from '../AuthNavigation/AuthNavigation';
-
-function Header() {
+export default function Header() {
   return (
-    <header className={styles.header}>
-      <div className={styles.container}>
-        <div className={styles.headerContent}>
-          <Link href="/notes" className={styles.logo}>
-            Notes App
-          </Link>
-
-          <nav className={styles.nav}>
-            <div className={styles.userSection}>
-              <AuthNavigation />
-            </div>
-          </nav>
-        </div>
-      </div>
+    <header className={css.header}>
+      <Link href="/" aria-label="Home">
+        NoteHub
+      </Link>
+      <nav aria-label="Main Navigation">
+        <ul className={css.navigation}>
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          <li>
+            <TagsMenu />
+          </li>
+        </ul>
+      </nav>
     </header>
   );
 }
-
-export default Header;
-export { Header };

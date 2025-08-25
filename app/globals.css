@@ -7,13 +7,3 @@ body {
   margin: 0;
   background-color: #f8f9fa;
 }
-
-.container {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.container main {
-  flex: 1;
-}

@@ -1,7 +1,6 @@
-// types/user.ts
-
 export interface User {
+	avatar: string;
+  username: string; 
   email: string;
-  username: string;
-  avatar: string;
+  
 }

@@ -1,34 +1,33 @@
 {
-  "name": "09-auth",
+  "name": "frend-09",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.0.0",
-    "@tanstack/react-query-devtools": "^5.0.0",
-    "axios": "^1.6.0",
+    "@tanstack/react-query": "^5.85.5",
+    "axios": "^1.11.0",
     "cookie": "^1.0.2",
-    "jsonwebtoken": "^9.0.0",
-    "next": "15.4.6",
-    "react": "^18",
-    "react-dom": "^18",
-    "use-debounce": "^10.0.0",
-    "zustand": "^4.5.7"
+    "next": "^15.5.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-paginate": "^8.3.0",
+    "use-debounce": "^10.0.5",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.0",
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "eslint": "^8",
-    "eslint-config-next": "15.4.6",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/node": "^20.19.11",
+    "@types/react": "^19.1.11",
+    "@types/react-dom": "^19.1.7",
+    "eslint": "^9.34.0",
+    "eslint-config-next": "^15.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
   }
 }

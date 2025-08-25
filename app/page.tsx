@@ -1,22 +1,22 @@
-import Link from 'next/link';
-import css from './page.module.css';
+import Image from "next/image";
+import css from "./Home.module.css";
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <main className={css.mainContent}>
+    <main>
       <div className={css.container}>
         <h1 className={css.title}>Welcome to NoteHub</h1>
         <p className={css.description}>
-          Your personal note-taking application with secure authentication.
+          NoteHub is a simple and efficient application designed for managing
+          personal notes. It helps keep your thoughts organized and accessible
+          in one place, whether you are at home or on the go.
         </p>
-        <div className={css.actions}>
-          <Link href="/notes" className={css.primaryButton}>
-            View Notes
-          </Link>
-          <Link href="/sign-in" className={css.secondaryButton}>
-            Sign In
-          </Link>
-        </div>
+        <p className={css.description}>
+          The app provides a clean interface for writing, editing, and browsing
+          notes. With support for keyword search and structured organization,
+          NoteHub offers a streamlined experience for anyone who values clarity
+          and productivity.
+        </p>
       </div>
     </main>
   );

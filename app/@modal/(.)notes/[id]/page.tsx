@@ -1,38 +1,33 @@
-// app/@modal/(.)notes/[id]/page.tsx
+import {
+  HydrationBoundary,
+  dehydrate,
+  QueryClient,
+} from "@tanstack/react-query";
+import { fetchNoteById } from "@/lib/api";
+import NotePreviewModal from "./NotePreview.client";
 
-import { Suspense } from "react";
-import NotePreviewClient from "./NotePreview.client";
-
-interface ModalNotePageProps {
-  params: Promise<{
-    id: string;
-  }>;
-}
-
-export default async function ModalNotePage({ params }: ModalNotePageProps) {
+export default async function NoteModal({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
+
+  const queryClient = new QueryClient();
+
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: ["note", id],
+      queryFn: () => fetchNoteById(id),
+    });
+  } catch (error) {
+    // Handle error - note not found
+    console.error("Note not found:", error);
+  }
 
   return (
-    <Suspense
-      fallback={
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <div className="text-center">Loading...</div>
-          </div>
-        </div>
-      }
-    >
-      <NotePreviewClient noteId={id} />
-    </Suspense>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <NotePreviewModal noteId={id} />
+    </HydrationBoundary>
   );
-}
-
-// Generate metadata for the modal
-export async function generateMetadata({ params }: ModalNotePageProps) {
-  const { id } = await params;
-
-  return {
-    title: `Note ${id} | Notes App`,
-    description: "Note preview modal",
-  };
 }
