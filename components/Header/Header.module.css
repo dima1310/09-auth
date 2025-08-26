@@ -1,3 +1,4 @@
+/* components/Header/Header.module.css */
 .header {
   display: flex;
   justify-content: space-between;
@@ -5,101 +6,33 @@
   padding: 1rem 2rem;
   background-color: #333;
   color: white;
-  min-height: 60px;
 }
 
-/* Left section with logo and navigation */
-.leftSection {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-}
-
-/* Logo styles */
-.logo {
+.header a {
   text-decoration: none;
   color: white;
   font-size: 1.5rem;
   font-weight: bold;
-  transition: color 0.2s ease;
 }
 
-.logo:hover {
+.header a:hover {
   color: #ddd;
 }
 
-/* Right section with auth navigation */
-.rightSection {
-  display: flex;
-  align-items: center;
-}
-
-/* Main navigation */
 .navigation {
   list-style-type: none;
   margin: 0;
   padding: 0;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .navigation li a {
   text-decoration: none;
   color: white;
   font-size: 1rem;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
 }
 
 .navigation li a:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    padding: 1rem;
-    gap: 1rem;
-  }
-
-  .leftSection {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
-
-  .logo {
-    text-align: center;
-  }
-
-  .navigation {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .rightSection {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .navigation {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .navigation li {
-    width: 100%;
-  }
-
-  .navigation li a {
-    display: block;
-    text-align: center;
-    width: 100%;
-  }
+  color: #ddd;
 }

@@ -1,32 +1,34 @@
-"use client";
+// app/(private-routes)/notes/action/create/page.tsx
+import type { Metadata } from "next";
+import NoteForm from "@/components/NoteForm/NoteForm";
+import css from "./page.module.css";
 
-import React from "react";
-import { useRouter } from "next/navigation";
-import NoteForm from "../../../../../components/NoteForm/NoteForm";
-import { Note } from "../../../../../types/note";
-import styles from "./page.module.css";
+export const metadata: Metadata = {
+  title: "Create new note - NoteHub",
+  description:
+    "Create a new note with tag support and categories. Simple and convenient editor for your ideas and notes.",
+  openGraph: {
+    title: "Create new note - NoteHub",
+    description:
+      "Create a new note with tag support and categories. Simple and convenient editor for your ideas and notes.",
+    url: "https://09-auth.vercel.app/notes/action/create",
+    images: [
+      {
+        url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Create new note - NoteHub",
+      },
+    ],
+  },
+};
 
-export default function CreateNotePage() {
-  const router = useRouter();
-
-  // Обработчик отмены создания заметки
-  const handleCancel = () => {
-    router.push("/notes/filter/all");
-  };
-
-  // Обработчик успешного создания заметки
-  const handleSuccess = (note: Note) => {
-    router.push(`/notes/${note.id}`);
-  };
-
+export default function CreateNote() {
   return (
-    <main className={styles.createNotePage}>
-      <div className={styles.container}>
-        <NoteForm
-          mode="create"
-          onCancel={handleCancel}
-          onSuccess={handleSuccess}
-        />
+    <main className={css.main}>
+      <div className={css.container}>
+        <h1 className={css.title}>Create note</h1>
+        <NoteForm />
       </div>
     </main>
   );

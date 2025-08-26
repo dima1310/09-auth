@@ -1,112 +1,136 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
-import { serverApiClient } from "../../../../lib/api/serverApi";
-import NoteDetails from "./NoteDetails.client";
-import Loader from "../../../../components/Loader/Loader";
+import {
+  HydrationBoundary,
+  dehydrate,
+  QueryClient,
+} from "@tanstack/react-query";
+import { getNoteById } from "@/lib/api/clientApi";
+import NoteDetailsClient from "./NoteDetails.client";
 
-// Типы для параметров страницы
-interface NoteDetailsPageProps {
-  params: Promise<{ id: string }>;
+interface Note {
+  id: string;
+  title?: string;
+  content?: string;
+  description?: string;
+  excerpt?: string;
+  tag?: string;
+  createdAt?: string;
 }
 
-// Функция для генерации динамических метаданных
+function createExcerpt(content: string, maxLength: number = 160): string {
+  if (!content) return "Переглянути деталі нотатки";
+
+  const plainText = content
+    .replace(/[#*_`]/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\n/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (plainText.length <= maxLength) return plainText;
+
+  const truncated = plainText.substring(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return lastSpace > 0
+    ? truncated.substring(0, lastSpace) + "..."
+    : truncated + "...";
+}
+
 export async function generateMetadata({
   params,
-}: NoteDetailsPageProps): Promise<Metadata> {
-  try {
-    // Асинхронно извлекаем id из params
-    const resolvedParams = await params;
-    const { id } = resolvedParams;
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
 
-    // Получаем данные заметки для метаданных
-    const note = await serverApiClient.notes.getById(id);
+  try {
+    const note = (await getNoteById(id)) as Note | null;
 
     if (!note) {
       return {
-        title: "Note Not Found - NoteHub",
-        description: "The requested note could not be found.",
+        title: "нотатку не знайдено - NoteHub",
+        description:
+          "Запитувана нотатка не існує або була видалена. Поверніться до списку нотаток.",
+        openGraph: {
+          title: "нотатку не знайдено - NoteHub",
+          description: "Запитувана нотатка не існує або була видалена.",
+          url: `https://notehub.com/notes/${id}`,
+          images: [
+            {
+              url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
+              width: 1200,
+              height: 630,
+              alt: "нотатку не знайдено - NoteHub",
+            },
+          ],
+        },
       };
     }
 
-    // Обрезаем содержание для description
+    const noteTitle = note.title || "Без назви";
     const description =
-      note.content.length > 160
-        ? `${note.content.slice(0, 160)}...`
-        : note.content;
-
-    // Формируем keywords из тегов
-    const keywords = ["note", "NoteHub", ...(note.tags || [])].join(", ");
+      note.excerpt ||
+      createExcerpt(note.content || "") ||
+      createExcerpt(note.description || "") ||
+      "Переглянути деталі цієї нотатки в NoteHub";
 
     return {
-      title: `${note.title} - NoteHub`,
+      title: `${noteTitle} | NoteHub`,
       description,
-      keywords,
       openGraph: {
-        title: note.title,
+        title: `${noteTitle} | NoteHub`,
         description,
-        type: "article",
-        publishedTime: note.createdAt,
-        modifiedTime: note.updatedAt,
-        tags: note.tags,
-      },
-      twitter: {
-        card: "summary",
-        title: note.title,
-        description,
+        url: `https://notehub.com/notes/${id}`,
+        images: [
+          {
+            url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
+            width: 1200,
+            height: 630,
+            alt: noteTitle,
+          },
+        ],
       },
     };
   } catch (error) {
-    console.error("Error generating metadata:", error);
+    console.error("Error fetching note for metadata:", error);
     return {
-      title: "Note Details - NoteHub",
-      description: "View note details on NoteHub",
+      title: "Помилка завантаження нотатки - NoteHub",
+      description:
+        "Сталася помилка при завантаженні нотатки. Спробуйте пізніше або поверніться до списку нотаток.",
+      openGraph: {
+        title: "Помилка завантаження нотатки - NoteHub",
+        description: "Сталася помилка при завантаженні нотатки.",
+        url: `https://notehub.com/notes/${id}`,
+        images: [
+          {
+            url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
+            width: 1200,
+            height: 630,
+            alt: "Помилка завантаження - NoteHub",
+          },
+        ],
+      },
     };
   }
 }
 
 export default async function NoteDetailsPage({
   params,
-}: NoteDetailsPageProps) {
-  try {
-    // Асинхронно извлекаем id из awaitable params
-    const resolvedParams = await params;
-    const { id } = resolvedParams;
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
 
-    // Проверяем валидность ID
-    if (!id || typeof id !== "string") {
-      notFound();
-    }
+  const queryClient = new QueryClient();
 
-    // Проверяем аутентификацию пользователя на сервере
-    const user = await serverApiClient.auth.getCurrentUser();
-    if (!user) {
-      redirect("/sign-in");
-    }
+  await queryClient.prefetchQuery({
+    queryKey: ["note", id],
+    queryFn: () => getNoteById(id),
+  });
 
-    // Получаем данные заметки на сервере для первоначальной загрузки
-    const note = await serverApiClient.notes.getById(id);
-
-    // Если заметка не найдена, показываем 404
-    if (!note) {
-      notFound();
-    }
-
-    return (
-      <div className="note-details-page">
-        <div className="note-details-container">
-          {/* Используем Suspense для обработки состояния загрузки */}
-          <Suspense fallback={<Loader />}>
-            {/* Клиентский компонент получает noteId как проп */}
-            <NoteDetails noteId={id} initialNote={note} user={user} />
-          </Suspense>
-        </div>
-      </div>
-    );
-  } catch (error) {
-    console.error("Error in NoteDetailsPage:", error);
-
-    // В случае ошибки перенаправляем на страницу заметок
-    redirect("/notes/filter/all");
-  }
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <NoteDetailsClient noteId={id} />
+    </HydrationBoundary>
+  );
 }

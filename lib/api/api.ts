@@ -1,13 +1,12 @@
+// lib/api/api.ts
 import axios from "axios";
 
-// Получаем базовый URL из переменной окружения с добавлением /api
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-export const api = axios.create({
-  baseURL: `${BASE_URL}/api`,
-  withCredentials: true,
+export const nextServer = axios.create({
+  baseURL: `${API_URL}/api`, // гарантированно абсолютный URL
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
+  withCredentials: true,
 });

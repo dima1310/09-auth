@@ -1,101 +1,69 @@
 "use client";
 
 import { useState } from "react";
-import { apiClient } from "@/lib/api/clientApi";
-
-interface SignUpFormData {
-  name: string;
-  email: string;
-  password: string;
-}
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/store/authStore";
+import { registerUser } from "@/lib/api/clientApi";
+import css from "./SignUpPage.module.css";
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState<SignUpFormData>({
-    name: "",
-    email: "",
-    password: "",
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const setUser = useAuthStore((state) => state.setUser);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
+    setError("");
 
     try {
-      const response = await apiClient.auth.register(formData);
-      console.log("Реєстрація успішна:", response);
-      setSuccess(true);
-
-      // При бажанні можна перенаправити користувача на логін
-      // router.push("/auth/login");
+      const user = await registerUser(email, password); // используем clientApi
+      setUser(user);
+      router.push("/profile");
     } catch (err: unknown) {
-      // Безпечна обробка помилки
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Щось пішло не так");
-      }
-    } finally {
-      setLoading(false);
+      if (err instanceof Error) setError(err.message);
+      else setError("Ошибка регистрации. Попробуйте ещё раз.");
     }
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "0 auto", padding: "2rem" }}>
-      <h1>Реєстрація</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="name">Ім'я</label>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
-        </div>
+    <main className={css.mainContent}>
+      <form className={css.form} onSubmit={handleSubmit}>
+        <h1 className={css.formTitle}>Sign up</h1>
 
-        <div>
+        <div className={css.formGroup}>
           <label htmlFor="email">Email</label>
           <input
-            type="email"
-            name="email"
             id="email"
-            value={formData.email}
-            onChange={handleChange}
+            type="email"
+            className={css.input}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
         </div>
 
-        <div>
-          <label htmlFor="password">Пароль</label>
+        <div className={css.formGroup}>
+          <label htmlFor="password">Password</label>
           <input
-            type="password"
-            name="password"
             id="password"
-            value={formData.password}
-            onChange={handleChange}
+            type="password"
+            className={css.input}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
         </div>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Реєстрація..." : "Зареєструватися"}
-        </button>
-      </form>
+        <div className={css.actions}>
+          <button type="submit" className={css.submitButton}>
+            Register
+          </button>
+        </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>Реєстрація пройшла успішно!</p>}
-    </div>
+        {error && <p className={css.error}>{error}</p>}
+      </form>
+    </main>
   );
 }

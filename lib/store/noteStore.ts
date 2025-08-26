@@ -1,114 +1,67 @@
 import { create } from "zustand";
-import { Note } from "../../types/note";
+import { persist, createJSONStorage } from "zustand/middleware";
 
-// Интерфейс для черновика заметки
 interface NoteDraft {
   title: string;
   content: string;
-  tags: string[];
+  tag: string;
 }
 
-// Интерфейс состояния черновика
-interface NoteDraftState {
-  draft: NoteDraft | null;
-}
-
-// Интерфейс действий для управления черновиком
-interface NoteDraftActions {
-  updateDraft: (draft: Partial<NoteDraft>) => void;
-  saveDraft: (draft: NoteDraft) => void;
+interface NoteStore {
+  draft: NoteDraft;
+  setDraft: (note: Partial<NoteDraft>) => void;
   clearDraft: () => void;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
-// Комбинированный тип для store черновика
-type NoteDraftStore = NoteDraftState & NoteDraftActions;
+const initialDraft: NoteDraft = {
+  title: "",
+  content: "",
+  tag: "Todo",
+};
 
-// Создание store для черновиков заметок
-export const useNoteDraftStore = create<NoteDraftStore>()((set, get) => ({
-  // Начальное состояние
-  draft: null,
+export const useNoteStore = create<NoteStore>()(
+  persist(
+    (set) => ({
+      draft: initialDraft,
+      _hasHydrated: false,
 
-  // Обновление черновика
-  updateDraft: (draftData: Partial<NoteDraft>) => {
-    const currentDraft = get().draft;
-    set({
-      draft: currentDraft
-        ? { ...currentDraft, ...draftData }
-        : { title: "", content: "", tags: [], ...draftData },
-    });
-  },
+      setDraft: (note: Partial<NoteDraft>) =>
+        set((state) => ({
+          draft: { ...state.draft, ...note },
+        })),
 
-  // Сохранение полного черновика
-  saveDraft: (draft: NoteDraft) => {
-    set({ draft });
-  },
+      clearDraft: () =>
+        set(() => ({
+          draft: initialDraft,
+        })),
 
-  // Очистка черновика
-  clearDraft: () => {
-    set({ draft: null });
-  },
-}));
+      setHasHydrated: (state: boolean) => {
+        set({
+          _hasHydrated: state,
+        });
+      },
+    }),
+    {
+      name: "note-draft-storage",
+      storage: createJSONStorage(() => {
+        if (typeof window !== "undefined") {
+          return localStorage;
+        }
 
-// Основной store для заметок (если нужен)
-interface NoteState {
-  notes: Note[];
-  currentNote: Note | null;
-}
-
-interface NoteActions {
-  setNotes: (notes: Note[]) => void;
-  setCurrentNote: (note: Note | null) => void;
-  addNote: (note: Note) => void;
-  updateNote: (id: string, note: Partial<Note>) => void;
-  removeNote: (id: string) => void;
-}
-
-type NoteStore = NoteState & NoteActions;
-
-export const useNoteStore = create<NoteStore>()((set, get) => ({
-  // Начальное состояние
-  notes: [],
-  currentNote: null,
-
-  // Установка списка заметок
-  setNotes: (notes: Note[]) => set({ notes }),
-
-  // Установка текущей заметки
-  setCurrentNote: (note: Note | null) => set({ currentNote: note }),
-
-  // Добавление заметки
-  addNote: (note: Note) => {
-    const notes = get().notes;
-    set({ notes: [note, ...notes] });
-  },
-
-  // Обновление заметки
-  updateNote: (id: string, noteData: Partial<Note>) => {
-    const notes = get().notes;
-    const updatedNotes = notes.map((note) =>
-      note.id === id ? { ...note, ...noteData } : note
-    );
-    set({ notes: updatedNotes });
-
-    // Обновляем текущую заметку если она обновляется
-    const currentNote = get().currentNote;
-    if (currentNote && currentNote.id === id) {
-      set({ currentNote: { ...currentNote, ...noteData } });
+        return {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        };
+      }),
+      partialize: (state) => ({
+        draft: state.draft,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
-  },
-
-  // Удаление заметки
-  removeNote: (id: string) => {
-    const notes = get().notes;
-    const filteredNotes = notes.filter((note) => note.id !== id);
-    set({ notes: filteredNotes });
-
-    // Очищаем текущую заметку если она была удалена
-    const currentNote = get().currentNote;
-    if (currentNote && currentNote.id === id) {
-      set({ currentNote: null });
-    }
-  },
-}));
-
-export default useNoteStore;
+  )
+);

@@ -1,142 +1,69 @@
 "use client";
 
-import React, { useState, FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { apiClient } from "../../../lib/api/clientApi";
-import { useAuthStore } from "../../../lib/store/authStore";
-import styles from "./SignInPage.module.css";
+import { useAuthStore } from "@/lib/store/authStore";
+import { loginUser } from "@/lib/api/clientApi";
+import css from "./SignInPage.module.css";
 
 export default function SignInPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const router = useRouter();
-  const { setUser, setLoading } = useAuthStore();
+  const setUser = useAuthStore((state) => state.setUser);
 
-  // Состояние формы
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
-
-  // Состояние для ошибок и загрузки
-  const [error, setError] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  // Обработчик изменения полей формы
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Очищаем ошибку при изменении полей
-    if (error) {
-      setError("");
-    }
-  };
-
-  // Обработчик отправки формы
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    // Валидация полей
-    if (!formData.email || !formData.password) {
-      setError("Email and password are required");
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
 
     try {
-      setIsSubmitting(true);
-      setLoading(true);
-      setError("");
-
-      // Аутентификация пользователя через API
-      const response = await apiClient.auth.login({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      // Сохраняем пользователя в глобальном состоянии
-      setUser(response.user);
-
-      // Перенаправляем на страницу профиля после успешной аутентификации
+      const user = await loginUser(email, password); // используем clientApi
+      setUser(user);
       router.push("/profile");
     } catch (err: unknown) {
-      console.error("Login failed:", err);
-
-      // Обработка ошибок
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Login failed. Please check your credentials and try again.");
-      }
-    } finally {
-      setIsSubmitting(false);
-      setLoading(false);
+      if (err instanceof Error) setError(err.message);
+      else setError("Ошибка входа. Попробуйте ещё раз.");
     }
   };
 
   return (
-    <div className={styles.signinPage}>
-      <div className={styles.signinContainer}>
-        <h1 className={styles.title}>Sign In</h1>
-        <p className={styles.subtitle}>
-          Welcome back! Please sign in to your account
-        </p>
+    <main className={css.mainContent}>
+      <form className={css.form} onSubmit={handleSubmit}>
+        <h1 className={css.formTitle}>Sign in</h1>
 
-        <form onSubmit={handleSubmit} className={styles.signinForm}>
-          {error && <div className={styles.errorMessage}>{error}</div>}
-
-          <div className={styles.formGroup}>
-            <label htmlFor="email" className={styles.label}>
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="password" className={styles.label}>
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={styles.submitButton}
-          >
-            {isSubmitting ? "Signing In..." : "Sign In"}
-          </button>
-        </form>
-
-        <div className={styles.signupLink}>
-          <p>
-            Don&apos;t have an account?{" "}
-            <Link href="/sign-up" className={styles.link}>
-              Sign up here
-            </Link>
-          </p>
+        <div className={css.formGroup}>
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            className={css.input}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </div>
-      </div>
-    </div>
+
+        <div className={css.formGroup}>
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            className={css.input}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className={css.actions}>
+          <button type="submit" className={css.submitButton}>
+            Log in
+          </button>
+        </div>
+
+        {error && <p className={css.error}>{error}</p>}
+      </form>
+    </main>
   );
 }

@@ -1,41 +1,65 @@
-import type { Metadata } from "next";
-import { ReactNode } from "react";
+// app/layout.tsx
+import type { ReactNode } from "react";
+import { Metadata } from "next";
+import { Roboto } from "next/font/google";
+import TanStackProvider from "@/components/TanStackProvider/TanStackProvider";
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
+import Header from "@/components/Header/Header";
+import Footer from "@/components/Footer/Footer";
 import "./globals.css";
-import Header from "../components/Header/Header";
-import Footer from "../components/Footer/Footer";
-import TanStackProvider from "../components/TanStackProvider/TanStackProvider";
-import { AuthProvider } from "../components/AuthProvider/AuthProvider"; // <-- исправлено
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-roboto",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "NoteHub - Your Personal Note Taking App",
+  title: "NoteHub",
   description:
-    "Create, organize, and manage your notes with NoteHub. A modern note-taking application built with Next.js.",
-  keywords: "notes, note-taking, productivity, organization, Next.js",
-  authors: [{ name: "NoteHub Team" }],
-  viewport: "width=device-width, initial-scale=1",
+    "NoteHub helps you create and organize notes with category filters. Quick search and clean design for work and study.",
+  openGraph: {
+    title: "NoteHub",
+    description:
+      "NoteHub helps you create and organize notes by filtering by category. Quick search, clean design — ideal for work, study, and brainstorming.",
+    siteName: "NoteHub",
+    url: "https://09-auth.vercel.app",
+    images: [
+      {
+        url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
+        width: 1200,
+        height: 630,
+        alt: "NoteHub - Manage your notes efficiently",
+      },
+    ],
+    type: "website",
+  },
 };
 
-interface RootLayoutProps {
+interface LayoutProps {
   children: ReactNode;
   modal: ReactNode;
 }
 
-export default function RootLayout({ children, modal }: RootLayoutProps) {
+export default function RootLayout({ children, modal }: LayoutProps) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={roboto.className}
+      suppressHydrationWarning={true}
+    >
       <body>
         <TanStackProvider>
           <AuthProvider>
-            <div id="app-container">
+            <div className="container">
               <Header />
-
-              <main id="main-content">{children}</main>
-
+              <main>{children}</main>
               <Footer />
-
-              {/* Модальные окна из parallel routes */}
-              <div id="modal-container">{modal}</div>
             </div>
+
+            {modal}
+            <div id="modal-root" />
           </AuthProvider>
         </TanStackProvider>
       </body>
