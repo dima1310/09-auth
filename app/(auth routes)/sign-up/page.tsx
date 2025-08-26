@@ -1,164 +1,101 @@
 "use client";
 
-import React, { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { apiClient } from "../../../lib/api/clientApi";
-import { useAuthStore } from "../../../lib/store/authStore";
-import styles from "./SignUpPage.module.css";
+import { useState } from "react";
+import { apiClient } from "@/lib/api/clientApi";
+
+interface SignUpFormData {
+  name: string;
+  email: string;
+  password: string;
+}
 
 export default function SignUpPage() {
-  const router = useRouter();
-  const { setUser, setLoading } = useAuthStore();
-
-  // Состояние формы
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SignUpFormData>({
     name: "",
     email: "",
     password: "",
   });
 
-  // Состояние для ошибок и загрузки
-  const [error, setError] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  // Обработчик изменения полей формы
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Очищаем ошибку при изменении полей
-    if (error) {
-      setError("");
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Обработчик отправки формы
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    // Валидация полей
-    if (!formData.name || !formData.email || !formData.password) {
-      setError("All fields are required");
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
 
     try {
-      setIsSubmitting(true);
-      setLoading(true);
-      setError("");
+      const response = await apiClient.auth.register(formData);
+      console.log("Реєстрація успішна:", response);
+      setSuccess(true);
 
-      // Регистрация пользователя через API
-      const response = await apiClient.auth.register({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      });
-
-      // Сохраняем пользователя в глобальном состоянии
-      setUser(response.user);
-
-      // Перенаправляем на страницу профиля после успешной регистрации
-      router.push("/profile");
+      // При бажанні можна перенаправити користувача на логін
+      // router.push("/auth/login");
     } catch (err: unknown) {
-      console.error("Registration failed:", err);
-
-      // Обработка ошибок
+      // Безпечна обробка помилки
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Registration failed. Please try again.");
+        setError("Щось пішло не так");
       }
     } finally {
-      setIsSubmitting(false);
       setLoading(false);
     }
   };
 
   return (
-    <div className={styles.signupPage}>
-      <div className={styles.signupContainer}>
-        <h1 className={styles.title}>Sign Up</h1>
-        <p className={styles.subtitle}>Create your account to get started</p>
-
-        <form onSubmit={handleSubmit} className={styles.signupForm}>
-          {error && <div className={styles.errorMessage}>{error}</div>}
-
-          <div className={styles.formGroup}>
-            <label htmlFor="name" className={styles.label}>
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="Enter your full name"
-              required
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="email" className={styles.label}>
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="password" className={styles.label}>
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="Create a password"
-              minLength={6}
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={styles.submitButton}
-          >
-            {isSubmitting ? "Creating Account..." : "Sign Up"}
-          </button>
-        </form>
-
-        <div className={styles.loginLink}>
-          <p>
-            Already have an account?{" "}
-            <Link href="/sign-in" className={styles.link}>
-              Sign in here
-            </Link>
-          </p>
+    <div style={{ maxWidth: "400px", margin: "0 auto", padding: "2rem" }}>
+      <h1>Реєстрація</h1>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="name">Ім'я</label>
+          <input
+            type="text"
+            name="name"
+            id="name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
         </div>
-      </div>
+
+        <div>
+          <label htmlFor="email">Email</label>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password">Пароль</label>
+          <input
+            type="password"
+            name="password"
+            id="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <button type="submit" disabled={loading}>
+          {loading ? "Реєстрація..." : "Зареєструватися"}
+        </button>
+      </form>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {success && <p style={{ color: "green" }}>Реєстрація пройшла успішно!</p>}
     </div>
   );
 }

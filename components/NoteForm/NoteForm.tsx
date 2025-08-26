@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent, KeyboardEvent } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { apiClient } from "../../lib/api/clientApi";
@@ -8,7 +8,6 @@ import { useNoteDraftStore } from "../../lib/store/noteStore";
 import { Note } from "../../types/note";
 import styles from "./NoteForm.module.css";
 
-// Типы для пропсов компонента
 interface NoteFormProps {
   mode: "create" | "edit";
   existingNote?: Note;
@@ -16,7 +15,6 @@ interface NoteFormProps {
   onSuccess?: (note: Note) => void;
 }
 
-// Типы для данных формы
 interface FormData {
   title: string;
   content: string;
@@ -31,31 +29,24 @@ export default function NoteForm({
 }: NoteFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { draft, saveDraft, clearDraft } = useNoteDraftStore();
 
-  // Глобальное состояние черновика
-  const { draft, updateDraft, clearDraft, saveDraft } = useNoteDraftStore();
-
-  // Локальное состояние формы
   const [formData, setFormData] = useState<FormData>({
     title: "",
     content: "",
     tags: [],
   });
-
   const [tagInput, setTagInput] = useState<string>("");
   const [error, setError] = useState<string>("");
 
-  // Инициализация формы
   useEffect(() => {
     if (mode === "edit" && existingNote) {
-      // Режим редактирования - используем существующую заметку
       setFormData({
         title: existingNote.title,
         content: existingNote.content,
         tags: existingNote.tags || [],
       });
     } else if (mode === "create" && draft) {
-      // Режим создания - восстанавливаем черновик
       setFormData({
         title: draft.title || "",
         content: draft.content || "",
@@ -64,140 +55,98 @@ export default function NoteForm({
     }
   }, [mode, existingNote, draft]);
 
-  // Автосохранение черновика при изменении (только для режима создания)
   useEffect(() => {
     if (mode === "create") {
-      const timeoutId = setTimeout(() => {
-        saveDraft(formData);
-      }, 1000);
-
+      const timeoutId = setTimeout(() => saveDraft(formData), 1000);
       return () => clearTimeout(timeoutId);
     }
   }, [formData, mode, saveDraft]);
 
-  // Мутация для создания заметки
-  const createNoteMutation = useMutation({
-    mutationFn: (data: { title: string; content: string; tags?: string[] }) =>
-      apiClient.notes.create(data),
+  const createNoteMutation = useMutation<
+    Note,
+    unknown,
+    { title: string; content: string; tags?: string[] }
+  >({
+    mutationFn: (data) => apiClient.notes.create(data),
     onSuccess: (newNote) => {
-      // Инвалидируем кэш заметок
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-
-      // Очищаем черновик после успешного создания
       clearDraft();
-
-      // Вызываем callback успеха
-      if (onSuccess) {
-        onSuccess(newNote);
-      } else {
-        router.push(`/notes/${newNote.id}`);
-      }
+      if (onSuccess) onSuccess(newNote);
+      else router.push(`/notes/${newNote.id}`);
     },
     onError: (err: unknown) => {
-      console.error("Failed to create note:", err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to create note. Please try again.");
-      }
+      if (err instanceof Error) setError(err.message);
+      else setError("Failed to create note. Please try again.");
     },
   });
 
-  // Мутация для обновления заметки
-  const updateNoteMutation = useMutation({
-    mutationFn: (data: { title: string; content: string; tags?: string[] }) =>
-      apiClient.notes.update(existingNote!.id, data),
+  const updateNoteMutation = useMutation<
+    Note,
+    unknown,
+    { title: string; content: string; tags?: string[] }
+  >({
+    mutationFn: (data) => {
+      if (!existingNote) throw new Error("No note to update");
+      return apiClient.notes.update(existingNote.id, data);
+    },
     onSuccess: (updatedNote) => {
-      // Инвалидируем кэш заметок
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-
-      // Вызываем callback успеха
-      if (onSuccess) {
-        onSuccess(updatedNote);
-      } else {
-        router.push(`/notes/${updatedNote.id}`);
-      }
+      if (onSuccess) onSuccess(updatedNote);
+      else router.push(`/notes/${updatedNote.id}`);
     },
     onError: (err: unknown) => {
-      console.error("Failed to update note:", err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to update note. Please try again.");
-      }
+      if (err instanceof Error) setError(err.message);
+      else setError("Failed to update note. Please try again.");
     },
   });
 
-  // Обработчики изменения полей формы
-  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-    setFormData((prev) => ({ ...prev, title: value }));
+  const handleChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setError("");
   };
 
-  const handleContentChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const { value } = event.target;
-    setFormData((prev) => ({ ...prev, content: value }));
-    setError("");
-  };
+  const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setTagInput(e.target.value);
 
-  const handleTagInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setTagInput(event.target.value);
-  };
-
-  // Обработчик добавления тега
   const handleAddTag = () => {
-    const trimmedTag = tagInput.trim();
-    if (trimmedTag && !formData.tags.includes(trimmedTag)) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, trimmedTag],
-      }));
+    const trimmed = tagInput.trim();
+    if (trimmed && !formData.tags.includes(trimmed)) {
+      setFormData((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }));
       setTagInput("");
     }
   };
 
-  // Обработчик нажатия Enter в поле тега
-  const handleTagKeyPress = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
       handleAddTag();
     }
   };
 
-  // Обработчик удаления тега
-  const handleRemoveTag = (tagToRemove: string) => {
+  const handleRemoveTag = (tag: string) => {
     setFormData((prev) => ({
       ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
+      tags: prev.tags.filter((t) => t !== tag),
     }));
   };
 
-  // Обработчик отправки формы
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    // Валидация
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!formData.title.trim()) {
       setError("Title is required");
       return;
     }
-
     if (!formData.content.trim()) {
       setError("Content is required");
       return;
     }
 
-    // Подготавливаем данные для отправки
     const noteData = {
       title: formData.title.trim(),
       content: formData.content.trim(),
-      tags: formData.tags.length > 0 ? formData.tags : undefined,
+      tags: formData.tags.length ? formData.tags : undefined,
     };
 
-    // Отправляем в зависимости от режима
     if (mode === "create") {
       createNoteMutation.mutate(noteData);
     } else if (mode === "edit") {
@@ -205,14 +154,7 @@ export default function NoteForm({
     }
   };
 
-  // Обработчик отмены
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    } else {
-      router.back();
-    }
-  };
+  const handleCancel = () => (onCancel ? onCancel() : router.back());
 
   const isSubmitting =
     createNoteMutation.isPending || updateNoteMutation.isPending;
@@ -223,11 +165,9 @@ export default function NoteForm({
         <h1 className={styles.title}>
           {mode === "create" ? "Create New Note" : "Edit Note"}
         </h1>
-
         <form onSubmit={handleSubmit} className={styles.form}>
           {error && <div className={styles.errorMessage}>{error}</div>}
 
-          {/* Поле заголовка */}
           <div className={styles.formGroup}>
             <label htmlFor="title" className={styles.label}>
               Title <span className={styles.required}>*</span>
@@ -235,9 +175,8 @@ export default function NoteForm({
             <input
               type="text"
               id="title"
-              name="title"
               value={formData.title}
-              onChange={handleTitleChange}
+              onChange={(e) => handleChange("title", e.target.value)}
               className={styles.input}
               placeholder="Enter note title..."
               disabled={isSubmitting}
@@ -245,16 +184,14 @@ export default function NoteForm({
             />
           </div>
 
-          {/* Поле содержания */}
           <div className={styles.formGroup}>
             <label htmlFor="content" className={styles.label}>
               Content <span className={styles.required}>*</span>
             </label>
             <textarea
               id="content"
-              name="content"
               value={formData.content}
-              onChange={handleContentChange}
+              onChange={(e) => handleChange("content", e.target.value)}
               className={styles.textarea}
               placeholder="Write your note content..."
               rows={10}
@@ -263,7 +200,6 @@ export default function NoteForm({
             />
           </div>
 
-          {/* Секция тегов */}
           <div className={styles.formGroup}>
             <label htmlFor="tags" className={styles.label}>
               Tags
@@ -274,7 +210,7 @@ export default function NoteForm({
                 id="tags"
                 value={tagInput}
                 onChange={handleTagInputChange}
-                onKeyPress={handleTagKeyPress}
+                onKeyDown={handleTagKeyDown}
                 className={styles.tagInput}
                 placeholder="Add a tag and press Enter..."
                 disabled={isSubmitting}
@@ -289,7 +225,6 @@ export default function NoteForm({
               </button>
             </div>
 
-            {/* Отображение тегов */}
             {formData.tags.length > 0 && (
               <div className={styles.tagsContainer}>
                 {formData.tags.map((tag) => (
@@ -310,7 +245,6 @@ export default function NoteForm({
             )}
           </div>
 
-          {/* Кнопки действий */}
           <div className={styles.actions}>
             <button
               type="button"
@@ -336,7 +270,6 @@ export default function NoteForm({
           </div>
         </form>
 
-        {/* Индикатор автосохранения черновика */}
         {mode === "create" && draft && (
           <div className={styles.draftIndicator}>
             <span>Draft saved automatically</span>
