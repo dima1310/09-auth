@@ -1,8 +1,15 @@
+// lib/api/serverApi.ts
 import { cookies } from "next/headers";
 import { nextServer } from "./api";
 import type { User } from "@/types/user";
 import type { Note } from "@/types/note";
 
+/* ================= AUTH ================= */
+
+/**
+ * Проверяет серверную сессию по refresh токену.
+ * Возвращает ответ сервера (с возможными новыми cookie).
+ */
 export async function checkServerSession() {
   try {
     const cookieStore = cookies();
@@ -20,6 +27,9 @@ export async function checkServerSession() {
   }
 }
 
+/**
+ * Загружает текущего пользователя на сервере (если авторизован).
+ */
 export async function fetchUserServer(): Promise<User | null> {
   try {
     const cookieStore = cookies();
@@ -36,7 +46,13 @@ export async function fetchUserServer(): Promise<User | null> {
   }
 }
 
-export async function getNoteById(id: string): Promise<Note> {
+/* ================= NOTES ================= */
+
+/**
+ * Получить заметку по id на сервере.
+ * Используется только в серверных компонентах.
+ */
+export async function getNoteByIdServer(id: string): Promise<Note | null> {
   try {
     const cookieStore = cookies();
     const cookieHeader = cookieStore.toString();
@@ -45,9 +61,9 @@ export async function getNoteById(id: string): Promise<Note> {
       headers: { Cookie: cookieHeader },
     });
 
-    return res.data;
-  } catch (error) {
-    console.error(`Ошибка загрузки нотатки ${id} на сервере:`, error);
-    throw error;
+    return res.data ?? null;
+  } catch (err) {
+    console.error(`Не удалось получить заметку ${id} на сервере:`, err);
+    return null;
   }
 }

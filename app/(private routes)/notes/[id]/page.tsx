@@ -1,12 +1,14 @@
+// app/(private-routes)/notes/[id]/page.tsx
 import type { Metadata } from "next";
 import {
   HydrationBoundary,
-  dehydrate,
   QueryClient,
+  dehydrate,
 } from "@tanstack/react-query";
-import { getNoteById } from "@/lib/api/serverApi";
 import NoteDetailsClient from "./NoteDetails.client";
+import { getNoteByIdServer } from "@/lib/api/serverApi"; // серверное API
 
+// Полный интерфейс Note с необходимыми полями
 interface Note {
   id: string;
   title?: string;
@@ -39,20 +41,20 @@ function createExcerpt(content: string, maxLength: number = 160): string {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { id } = params;
 
   try {
-    const note = (await getNoteById(id)) as Note | null;
+    const note: Note | null = await getNoteByIdServer(id);
 
     if (!note) {
       return {
-        title: "нотатку не знайдено - NoteHub",
+        title: "Нотатку не знайдено - NoteHub",
         description:
           "Запитувана нотатка не існує або була видалена. Поверніться до списку нотаток.",
         openGraph: {
-          title: "нотатку не знайдено - NoteHub",
+          title: "Нотатку не знайдено - NoteHub",
           description: "Запитувана нотатка не існує або була видалена.",
           url: `https://notehub.com/notes/${id}`,
           images: [
@@ -60,7 +62,7 @@ export async function generateMetadata({
               url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
               width: 1200,
               height: 630,
-              alt: "нотатку не знайдено - NoteHub",
+              alt: "Нотатку не знайдено - NoteHub",
             },
           ],
         },
@@ -117,15 +119,17 @@ export async function generateMetadata({
 export default async function NoteDetailsPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
-
+  const { id } = params;
   const queryClient = new QueryClient();
 
   await queryClient.prefetchQuery({
     queryKey: ["note", id],
-    queryFn: () => getNoteById(id),
+    queryFn: async () => {
+      const note: Note | null = await getNoteByIdServer(id);
+      return note;
+    },
   });
 
   return (

@@ -3,7 +3,7 @@ import {
   dehydrate,
   QueryClient,
 } from "@tanstack/react-query";
-import { getNoteById } from "@/lib/api/serverApi";
+import { getNoteById } from "@/lib/api/clientApi";
 import NotePreviewModal from "./NotePreview.client";
 
 export default async function NoteModal({
