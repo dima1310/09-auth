@@ -1,89 +1,98 @@
 // middleware.ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { parse } from "cookie";
-import { checkServerSession } from "./lib/api/serverApi";
+// Маршруты
+const PRIVATE_MATCHERS = ["/notes", "/profile"];
+const PUBLIC_MATCHERS = ["/sign-in", "/sign-up"];
 
-const privateRoutes = ["/profile"];
-const publicRoutes = ["/sign-in", "/sign-up"];
+// Утилиты
+const isMatch = (pathname: string, patterns: string[]) =>
+  patterns.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken")?.value;
-  const refreshToken = cookieStore.get("refreshToken")?.value;
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-  const isPrivateRoute = privateRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+  const isPrivate = isMatch(pathname, PRIVATE_MATCHERS);
+  const isPublic = isMatch(pathname, PUBLIC_MATCHERS);
 
-  if (!accessToken) {
-    if (refreshToken) {
-      // Якщо accessToken відсутній, але є refreshToken — потрібно перевірити сесію навіть для публічного маршруту,
-      // адже сесія може залишатися активною, і тоді потрібно заборонити доступ до публічного маршруту.
-      const data = await checkServerSession();
-      const setCookie = data.headers["set-cookie"];
+  // Куки из запроса (Edge-совместимо)
+  const accessToken = req.cookies.get("accessToken")?.value;
+  const refreshToken = req.cookies.get("refreshToken")?.value;
 
-      if (setCookie) {
-        const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
-        for (const cookieStr of cookieArray) {
-          const parsed = parse(cookieStr);
-          const options = {
-            expires: parsed.Expires ? new Date(parsed.Expires) : undefined,
-            path: parsed.Path,
-            maxAge: Number(parsed["Max-Age"]),
-          };
-          if (parsed.accessToken)
-            cookieStore.set("accessToken", parsed.accessToken, options);
-          if (parsed.refreshToken)
-            cookieStore.set("refreshToken", parsed.refreshToken, options);
-        }
-        // Якщо сесія все ще активна:
-        // для публічного маршруту — виконуємо редірект на головну.
-        if (isPublicRoute) {
-          return NextResponse.redirect(new URL("/", request.url), {
-            headers: {
-              Cookie: cookieStore.toString(),
-            },
-          });
-        }
-        // для приватного маршруту — дозволяємо доступ
-        if (isPrivateRoute) {
-          return NextResponse.next({
-            headers: {
-              Cookie: cookieStore.toString(),
-            },
-          });
-        }
-      }
+  // Если access есть — считаем авторизованным
+  if (accessToken) {
+    // На публичные страницы авторизованного не пускаем
+    if (isPublic) {
+      return NextResponse.redirect(new URL("/", req.url));
     }
-    // Якщо refreshToken або сесії немає:
-    // публічний маршрут — дозволяємо доступ
-    if (isPublicRoute) {
-      return NextResponse.next();
-    }
-
-    // приватний маршрут — редірект на сторінку входу
-    if (isPrivateRoute) {
-      return NextResponse.redirect(new URL("/sign-in", request.url));
-    }
-  }
-
-  // Якщо accessToken існує:
-  // публічний маршрут — виконуємо редірект на головну
-  if (isPublicRoute) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-  // приватний маршрут — дозволяємо доступ
-  if (isPrivateRoute) {
     return NextResponse.next();
   }
+
+  // access нет — пробуем рефреш по refreshToken
+  if (refreshToken) {
+    // Абсолютный URL для Edge (важно!)
+    const refreshUrl = process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/auth/session`
+      : new URL("/api/auth/session", req.url).toString();
+
+    try {
+      const res = await fetch(refreshUrl, {
+        method: "GET",
+        // Пробрасываем куки запроса
+        headers: {
+          cookie: req.headers.get("cookie") ?? "",
+        },
+      });
+
+      if (res.ok) {
+        // Забираем все Set-Cookie (Edge даёт getSetCookie())
+        // и переносим их в ответ middleware
+        const setCookies =
+          typeof res.headers.getSetCookie === "function"
+            ? // Edge
+              res.headers.getSetCookie()
+            : // Fallback для сред без getSetCookie
+              res.headers.get("set-cookie")
+              ? [res.headers.get("set-cookie") as string]
+              : [];
+
+        // Если сервер реально отдал новые куки — применяем и ведём себя как авторизованные
+        if (setCookies && setCookies.length > 0) {
+          if (isPublic) {
+            const resp = NextResponse.redirect(new URL("/", req.url));
+            for (const c of setCookies) resp.headers.append("Set-Cookie", c);
+            return resp;
+          }
+          const resp = NextResponse.next();
+          for (const c of setCookies) resp.headers.append("Set-Cookie", c);
+          return resp;
+        }
+      }
+      // Рефреш не прошёл — падаем в блок ниже
+    } catch (e) {
+      // Ошибку просто логируем и продолжаем как неавторизованные
+      console.error("Session refresh failed in middleware:", e);
+    }
+  }
+
+  // Неавторизованный:
+  // - на публичные маршруты пускаем
+  if (isPublic) return NextResponse.next();
+
+  // - на приватные — редиректим на sign-in
+  if (isPrivate) {
+    const loginUrl = new URL("/sign-in", req.url);
+    // можно сохранить, куда возвращать пользователя после логина:
+    loginUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Остальные маршруты пропускаем как есть
+  return NextResponse.next();
 }
 
+// Где запускаем middleware
 export const config = {
-  matcher: ["/profile/:path*", "/sign-in", "/sign-up"],
+  matcher: ["/notes/:path*", "/profile/:path*", "/sign-in", "/sign-up"],
 };

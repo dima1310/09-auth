@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuthStore } from "@/lib/store/authStore";
 import { NoteTag } from "@/types/note";
 import css from "./TagsMenu.module.css";
 
@@ -16,6 +17,12 @@ const TAGS: (NoteTag | "All")[] = [
 
 export default function TagsMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+
+  // Если пользователь не авторизован, не показываем меню Notes
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className={css.menuContainer}>
