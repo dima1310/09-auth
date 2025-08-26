@@ -1,84 +1,161 @@
 import type { Metadata } from "next";
-import {
-  HydrationBoundary,
-  QueryClient,
-  dehydrate,
-} from "@tanstack/react-query";
-import { fetchNotes } from "@/lib/api";
-import NotesClient from "./Notes.client";
+import { redirect } from "next/navigation";
+import { serverApiClient } from "../../../../../lib/api/serverApi";
+import Notes from "./Notes.client";
 
+// Типы для параметров страницы
+interface NotesFilterPageProps {
+  params: Promise<{ slug: string[] }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+// Функция для генерации динамических метаданных
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ slug: string[] }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const tag = slug?.[0] || "All";
+  searchParams,
+}: NotesFilterPageProps): Promise<Metadata> {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
 
-  // Формуємо назву та опис на основі обраного тегу
-  let title: string;
-  let description: string;
+  // Извлекаем параметры фильтра из URL
+  const filterType = resolvedParams.slug[0] || "all";
+  const filterValue = resolvedParams.slug[1] || "";
 
-  if (tag === "All") {
-    title = "Всі нотатки - NoteHub";
-    description =
-      "Переглядайте всі ваші нотатки в одному місці. Знайдіть потрібні нотатки швидко та ефективно.";
-  } else {
-    // Капіталізуємо перший символ тегу для красивого відображення
-    const formattedTag = tag.charAt(0).toUpperCase() + tag.slice(1);
-    title = `Нотаток з тегом "${formattedTag}" - NoteHub`;
-    description = `Переглядайте всі нотатки з тегом "${formattedTag}". Організовані нотатки для швидкого пошуку по темі.`;
+  // Создаем динамическое описание на основе фильтров
+  let title = "My Notes - NoteHub";
+  let description = "View and manage your notes";
+
+  switch (filterType) {
+    case "tag":
+      title = `Notes tagged with "${filterValue}" - NoteHub`;
+      description = `View all notes tagged with "${filterValue}"`;
+      break;
+    case "search":
+      title = `Search results for "${filterValue}" - NoteHub`;
+      description = `Search results for "${filterValue}" in your notes`;
+      break;
+    case "all":
+    default:
+      title = "All Notes - NoteHub";
+      description = "View all your notes";
+      break;
   }
-
-  // Формуємо URL
-  const url = `https://notehub.com/notes/filter/${slug.join("/")}`;
 
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      url,
-      images: [
-        {
-          url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
-          width: 1200,
-          height: 630,
-          alt:
-            tag === "All"
-              ? "Всі нотатки - NoteHub"
-              : `Нотаток з тегом ${tag} - NoteHub`,
-        },
-      ],
-    },
+    keywords: "notes, filter, search, tags, organization, NoteHub",
   };
 }
 
-export default async function FilterPage({
+export default async function NotesFilterPage({
   params,
-}: {
-  params: Promise<{ slug: string[] }>;
-}) {
-  const { slug } = await params;
-  const tag = slug?.[0] || "All";
+  searchParams,
+}: NotesFilterPageProps) {
+  // Разрешаем промисы для получения параметров
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
 
-  const queryClient = new QueryClient();
+  // Проверяем аутентификацию пользователя
+  const user = await serverApiClient.auth.getCurrentUser();
+  if (!user) {
+    redirect("/sign-in");
+  }
 
-  // Передвибираємо дані нотаток
-  const initialData = await queryClient.fetchQuery({
-    queryKey: ["notes", 1, "", tag],
-    queryFn: () =>
-      fetchNotes({
-        page: 1,
-        search: "",
-        tag: tag === "All" ? undefined : tag,
-      }),
-  });
+  // Извлекаем параметры фильтра из catch-all сегмента
+  const filterType = resolvedParams.slug[0] || "all";
+  const filterValue = resolvedParams.slug[1] || "";
+
+  // Извлекаем дополнительные параметры из query string
+  const page =
+    typeof resolvedSearchParams.page === "string"
+      ? parseInt(resolvedSearchParams.page, 10)
+      : 1;
+  const limit =
+    typeof resolvedSearchParams.limit === "string"
+      ? parseInt(resolvedSearchParams.limit, 10)
+      : 10;
+  const search =
+    typeof resolvedSearchParams.search === "string"
+      ? resolvedSearchParams.search
+      : "";
+
+  // Подготавливаем параметры для API запроса
+  const apiParams: {
+    page: number;
+    limit: number;
+    search?: string;
+    tags?: string[];
+  } = {
+    page,
+    limit,
+  };
+
+  // Добавляем параметры фильтрации на основе типа фильтра
+  switch (filterType) {
+    case "search":
+      if (filterValue) {
+        apiParams.search = filterValue;
+      }
+      break;
+    case "tag":
+      if (filterValue) {
+        apiParams.tags = [filterValue];
+      }
+      break;
+    case "all":
+    default:
+      // Используем search из query parameters если есть
+      if (search) {
+        apiParams.search = search;
+      }
+      break;
+  }
+
+  // Получаем заметки с сервера на основе параметров фильтра
+  const notesData = await serverApiClient.notes.getAll(apiParams);
+
+  // Подготавливаем данные для отображения
+  const filterParams = {
+    type: filterType,
+    value: filterValue,
+    search,
+    page,
+    limit,
+  };
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <NotesClient tag={tag} initialData={initialData} />
-    </HydrationBoundary>
+    <div className="notes-filter-page">
+      <div className="notes-container">
+        {/* Заголовок страницы с информацией о текущем фильтре */}
+        <header className="notes-header">
+          <h1>
+            {filterType === "tag" &&
+              filterValue &&
+              `Notes tagged with "${filterValue}"`}
+            {filterType === "search" &&
+              filterValue &&
+              `Search results for "${filterValue}"`}
+            {filterType === "all" && "All Notes"}
+            {!filterType && "My Notes"}
+          </h1>
+          <p className="notes-count">
+            {notesData.total > 0
+              ? `Found ${notesData.total} ${notesData.total === 1 ? "note" : "notes"}`
+              : "No notes found"}
+          </p>
+        </header>
+
+        {/* Клиентский компонент для отображения заметок */}
+        <Notes
+          initialNotes={notesData.notes}
+          initialTotal={notesData.total}
+          initialPage={notesData.page}
+          initialLimit={notesData.limit}
+          filterParams={filterParams}
+          user={user}
+        />
+      </div>
+    </div>
   );
 }

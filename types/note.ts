@@ -1,21 +1,11 @@
-export type NoteTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
-
 export interface Note {
   id: string;
   title: string;
   content: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
-  tag: NoteTag;
+  userId?: string;
 }
 
-export interface NotesResponse {
-  notes: Note[];
-  totalPages: number;
-}
-
-export interface CreateNotePayload {
-  title: string;
-  content: string;
-  tag: NoteTag;
-}
+export type NoteTag = string;

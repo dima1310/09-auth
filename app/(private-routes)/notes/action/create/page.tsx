@@ -1,33 +1,32 @@
-import type { Metadata } from "next";
-import NoteForm from "@/components/NoteForm/NoteForm";
-import css from "./page.module.css";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Створити нову нотатку - NoteHub",
-  description:
-    "Створіть нову нотатку з підтримкою тегів та категорій. Простий та зручний редактор для ваших ідей та нотаток.",
-  openGraph: {
-    title: "Створити нову нотатку - NoteHub",
-    description:
-      "Створіть нову нотатку з підтримкою тегів та категорій. Простий та зручний редактор для ваших ідей та нотаток.",
-    url: "https://notehub.com/notes/action/create",
-    images: [
-      {
-        url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Створити нову нотатку - NoteHub",
-      },
-    ],
-  },
-};
+import React from "react";
+import { useRouter } from "next/navigation";
+import NoteForm from "../../../../../components/NoteForm/NoteForm";
+import { Note } from "../../../../../types/note";
+import styles from "./page.module.css";
 
-export default function CreateNote() {
+export default function CreateNotePage() {
+  const router = useRouter();
+
+  // Обработчик отмены создания заметки
+  const handleCancel = () => {
+    router.push("/notes/filter/all");
+  };
+
+  // Обработчик успешного создания заметки
+  const handleSuccess = (note: Note) => {
+    router.push(`/notes/${note.id}`);
+  };
+
   return (
-    <main className={css.main}>
-      <div className={css.container}>
-        <h1 className={css.title}>Create note</h1>
-        <NoteForm />
+    <main className={styles.createNotePage}>
+      <div className={styles.container}>
+        <NoteForm
+          mode="create"
+          onCancel={handleCancel}
+          onSuccess={handleSuccess}
+        />
       </div>
     </main>
   );

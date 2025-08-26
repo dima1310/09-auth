@@ -1,36 +1,176 @@
-.userEmail {
-  color: white;
-  margin-right: 0.5rem;
-  font-size: 0.9rem;
+/* Navigation container */
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.logoutButton {
-  background: transparent;
-  border: 1px solid white;
-  color: white;
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.logoutButton:hover {
-  background-color: white;
-  color: #333;
-}
-
+/* Navigation item container */
 .navigationItem {
   display: flex;
   align-items: center;
+  gap: 1rem;
 }
 
+/* User information section */
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* User avatar */
+.userAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* User details container */
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+/* User name */
+.userName {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* User email */
+.userEmail {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+/* Navigation actions */
+.navigationActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: 1rem;
+}
+
+/* Profile link */
+.profileLink {
+  color: white;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.profileLink:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Logout button */
+.logoutButton {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.logoutButton:hover:not(:disabled) {
+  background-color: white;
+  color: #333;
+  border-color: white;
+}
+
+.logoutButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Navigation link */
 .navigationLink {
   text-decoration: none;
   color: white;
   font-size: 1rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
 }
 
 .navigationLink:hover {
-  color: #ddd;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Helper text */
+.helperText {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+}
+
+/* Separator */
+.separator {
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0.25rem;
+}
+
+/* Loading text */
+.loadingText {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .navigation {
+    width: 100%;
+  }
+
+  .navigationItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .userInfo {
+    width: 100%;
+  }
+
+  .navigationActions {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+
+  .userDetails {
+    flex: 1;
+  }
+
+  .userAvatar {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navigationActions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .profileLink,
+  .logoutButton {
+    width: 100%;
+    text-align: center;
+  }
 }
