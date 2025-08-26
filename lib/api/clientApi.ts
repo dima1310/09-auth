@@ -9,57 +9,47 @@ export const axiosClient = axios.create({
 
 export interface User {
   id: string;
-  name: string;
   email: string;
+  name?: string;
+}
+
+interface LoginResponse {
+  user: User;
+  token: string;
 }
 
 export const auth = {
-  register: async (data: { name: string; email: string; password: string }) => {
+  register: async (data: { email: string; password: string }) => {
     const res = await axiosClient.post("/auth/register", data);
     return res.data;
   },
 
-  login: async (email: string, password: string) => {
-    const res = await axiosClient.post("/auth/login", { email, password });
-    return res.data; // { user: User; token?: string }
-  },
-
-  getCurrentUser: async (): Promise<User> => {
-    const res = await axiosClient.get("/auth/me");
+  login: async (data: {
+    email: string;
+    password: string;
+  }): Promise<LoginResponse> => {
+    const res = await axiosClient.post("/auth/login", data);
     return res.data;
   },
 
-  logout: async (): Promise<void> => {
-    await axiosClient.post("/auth/logout");
-  },
-};
-
-export const notes = {
-  getAll: async () => {
-    const res = await axiosClient.get("/notes");
+  getCurrentUser: async (accessToken: string): Promise<User> => {
+    const res = await axiosClient.get("/auth/current", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     return res.data;
   },
 
-  create: async (data: { title: string; content: string; tags?: string[] }) => {
-    const res = await axiosClient.post("/notes", data);
-    return res.data;
-  },
-
-  update: async (
-    id: string,
-    data: { title: string; content: string; tags?: string[] }
-  ) => {
-    const res = await axiosClient.put(`/notes/${id}`, data);
-    return res.data;
-  },
-
-  delete: async (id: string) => {
-    const res = await axiosClient.delete(`/notes/${id}`);
-    return res.data;
+  logout: async (accessToken: string): Promise<void> => {
+    await axiosClient.post(
+      "/auth/logout",
+      {},
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
   },
 };
 
 export const apiClient = {
   auth,
-  notes,
 };
